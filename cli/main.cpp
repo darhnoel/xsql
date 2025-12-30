@@ -1061,30 +1061,40 @@ std::string render_table_duckbox(const xsql::QueryResult::TableResult& table,
   }
   xsql::QueryResult view;
   size_t data_start = 0;
+  std::vector<std::string> column_keys;
+  column_keys.reserve(max_cols);
   if (!table.rows.empty()) {
-    view.columns = table.rows.front();
+    std::vector<std::string> headers = table.rows.front();
     data_start = 1;
-    if (view.columns.size() < max_cols) {
-      for (size_t i = view.columns.size(); i < max_cols; ++i) {
-        view.columns.push_back("col" + std::to_string(i + 1));
-      }
+    if (headers.size() < max_cols) {
+      headers.resize(max_cols);
     }
-    for (size_t i = 0; i < view.columns.size(); ++i) {
-      if (view.columns[i].empty()) {
-        view.columns[i] = "col" + std::to_string(i + 1);
+    std::unordered_map<std::string, int> seen;
+    for (size_t i = 0; i < max_cols; ++i) {
+      std::string name = headers[i];
+      if (name.empty()) {
+        name = "col" + std::to_string(i + 1);
       }
+      auto& count = seen[name];
+      std::string key = name;
+      if (count > 0) {
+        key = name + "_" + std::to_string(count + 1);
+      }
+      ++count;
+      column_keys.push_back(key);
     }
   } else {
-    view.columns.reserve(max_cols);
     for (size_t i = 0; i < max_cols; ++i) {
-      view.columns.push_back("col" + std::to_string(i + 1));
+      column_keys.push_back("col" + std::to_string(i + 1));
     }
   }
+  view.columns = column_keys;
   for (size_t r = data_start; r < table.rows.size(); ++r) {
     const auto& row_values = table.rows[r];
     xsql::QueryResultRow row;
-    for (size_t i = 0; i < row_values.size(); ++i) {
-      row.attributes["col" + std::to_string(i + 1)] = row_values[i];
+    size_t limit = std::min(row_values.size(), column_keys.size());
+    for (size_t i = 0; i < limit; ++i) {
+      row.attributes[column_keys[i]] = row_values[i];
     }
     view.rows.push_back(std::move(row));
   }
