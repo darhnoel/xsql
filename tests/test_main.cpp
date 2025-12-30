@@ -315,6 +315,20 @@ void test_attributes_is_not_null() {
   }
 }
 
+void test_node_id_filter() {
+  std::string html = "<div></div><span></span>";
+  auto id_result = run_query(html, "SELECT span.node_id FROM document");
+  expect_true(!id_result.rows.empty(), "node_id projection rows");
+  if (!id_result.rows.empty()) {
+    int64_t id = id_result.rows[0].node_id;
+    auto result = run_query(html, "SELECT span FROM document WHERE node_id = " + std::to_string(id));
+    expect_eq(result.rows.size(), 1, "node_id filter matches");
+    if (!result.rows.empty()) {
+      expect_true(result.rows[0].tag == "span", "node_id filter returns span");
+    }
+  }
+}
+
 void test_to_table_flag() {
   std::string html = "<table><tr><th>H</th></tr></table>";
   auto result = run_query(html, "SELECT table FROM document TO TABLE()");
@@ -503,7 +517,7 @@ void test_duckbox_maxrows_truncate() {
       "├────────────────────┼────────────────────┤\n"
       "│ a                  │ b                  │\n"
       "│ c                  │ d                  │\n"
-      "│ … truncated, showing first 2 of 3 ro… │\n"
+      "│ … truncated, showing first 2 of 3 rows… │\n"
       "└────────────────────┴────────────────────┘";
   expect_true(out == expected, "duckbox maxrows truncation");
 }
@@ -572,6 +586,7 @@ const TestCase kTests[] = {
     {"parent_id_filter", test_parent_id_filter},
     {"attributes_is_null", test_attributes_is_null},
     {"attributes_is_not_null", test_attributes_is_not_null},
+    {"node_id_filter", test_node_id_filter},
     {"to_table_flag", test_to_table_flag},
     {"to_list_flag", test_to_list_flag},
     {"attribute_projection_value", test_attribute_projection_value},

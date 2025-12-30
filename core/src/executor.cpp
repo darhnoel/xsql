@@ -98,6 +98,20 @@ bool match_field(const HtmlNode& node,
                  const std::vector<std::string>& values,
                  CompareExpr::Op op) {
   bool is_in = op == CompareExpr::Op::In;
+  if (field_kind == Operand::FieldKind::NodeId) {
+    if (op == CompareExpr::Op::Regex) return false;
+    auto target = parse_int64(values.front());
+    if (!target.has_value()) return false;
+    if (is_in) {
+      for (const auto& value : values) {
+        auto parsed = parse_int64(value);
+        if (parsed.has_value() && *parsed == node.id) return true;
+      }
+      return false;
+    }
+    if (op == CompareExpr::Op::NotEq) return node.id != *target;
+    return node.id == *target;
+  }
   if (field_kind == Operand::FieldKind::ParentId) {
     if (!node.parent_id.has_value()) return false;
     if (op == CompareExpr::Op::Regex) return false;
@@ -167,6 +181,37 @@ bool match_field(const HtmlNode& node,
   if (is_in) return string_in_list(node.text, values);
   if (op == CompareExpr::Op::NotEq) return node.text != values.front();
   return node.text == values.front();
+}
+
+bool has_child_node_id(const HtmlDocument& doc,
+                       const std::vector<std::vector<int64_t>>& children,
+                       const HtmlNode& node,
+                       const std::vector<std::string>& values,
+                       CompareExpr::Op op) {
+  for (int64_t id : children.at(static_cast<size_t>(node.id))) {
+    const HtmlNode& child = doc.nodes.at(static_cast<size_t>(id));
+    if (match_field(child, Operand::FieldKind::NodeId, "", values, op)) return true;
+  }
+  return false;
+}
+
+bool has_descendant_node_id(const HtmlDocument& doc,
+                            const std::vector<std::vector<int64_t>>& children,
+                            const HtmlNode& node,
+                            const std::vector<std::string>& values,
+                            CompareExpr::Op op) {
+  std::vector<int64_t> stack;
+  stack.insert(stack.end(), children.at(static_cast<size_t>(node.id)).begin(),
+               children.at(static_cast<size_t>(node.id)).end());
+  while (!stack.empty()) {
+    int64_t id = stack.back();
+    stack.pop_back();
+    const HtmlNode& child = doc.nodes.at(static_cast<size_t>(id));
+    if (match_field(child, Operand::FieldKind::NodeId, "", values, op)) return true;
+    const auto& next = children.at(static_cast<size_t>(id));
+    stack.insert(stack.end(), next.begin(), next.end());
+  }
+  return false;
 }
 
 bool axis_has_parent_id(const HtmlDocument& doc,
@@ -340,37 +385,52 @@ bool eval_expr(const Expr& expr,
     const auto& cmp = std::get<CompareExpr>(expr);
     std::vector<std::string> values = cmp.rhs.values;
     bool is_in = cmp.op == CompareExpr::Op::In;
-    if (cmp.op == CompareExpr::Op::IsNull || cmp.op == CompareExpr::Op::IsNotNull) {
-      bool exists = false;
-      if (cmp.lhs.field_kind == Operand::FieldKind::AttributesMap) {
-        exists = !node.attributes.empty();
-      } else if (cmp.lhs.field_kind == Operand::FieldKind::Attribute) {
-        exists = axis_has_attribute(doc, children, node, cmp.lhs.axis, cmp.lhs.attribute);
-      } else if (cmp.lhs.field_kind == Operand::FieldKind::ParentId) {
-        exists = axis_has_parent_id(doc, children, node, cmp.lhs.axis);
-      } else {
-        exists = axis_has_any_node(doc, children, node, cmp.lhs.axis);
-      }
+  if (cmp.op == CompareExpr::Op::IsNull || cmp.op == CompareExpr::Op::IsNotNull) {
+    bool exists = false;
+    if (cmp.lhs.field_kind == Operand::FieldKind::AttributesMap) {
+      exists = !node.attributes.empty();
+    } else if (cmp.lhs.field_kind == Operand::FieldKind::Attribute) {
+      exists = axis_has_attribute(doc, children, node, cmp.lhs.axis, cmp.lhs.attribute);
+    } else if (cmp.lhs.field_kind == Operand::FieldKind::NodeId) {
+      exists = axis_has_any_node(doc, children, node, cmp.lhs.axis);
+    } else if (cmp.lhs.field_kind == Operand::FieldKind::ParentId) {
+      exists = axis_has_parent_id(doc, children, node, cmp.lhs.axis);
+    } else {
+      exists = axis_has_any_node(doc, children, node, cmp.lhs.axis);
+    }
       return (cmp.op == CompareExpr::Op::IsNull) ? !exists : exists;
     }
     if (cmp.lhs.axis == Operand::Axis::Parent) {
       if (!node.parent_id.has_value()) return false;
       const HtmlNode& parent = doc.nodes.at(static_cast<size_t>(*node.parent_id));
+      if (cmp.lhs.field_kind == Operand::FieldKind::NodeId) {
+        return match_field(parent, cmp.lhs.field_kind, cmp.lhs.attribute, values, cmp.op);
+      }
       return match_field(parent, cmp.lhs.field_kind, cmp.lhs.attribute, values, cmp.op);
     }
     if (cmp.lhs.axis == Operand::Axis::Child) {
+      if (cmp.lhs.field_kind == Operand::FieldKind::NodeId) {
+        return has_child_node_id(doc, children, node, values, cmp.op);
+      }
       return has_child_field(doc, children, node, cmp.lhs.field_kind, cmp.lhs.attribute, values, cmp.op);
     }
     if (cmp.lhs.axis == Operand::Axis::Ancestor) {
       const HtmlNode* current = &node;
       while (current->parent_id.has_value()) {
         const HtmlNode& parent = doc.nodes.at(static_cast<size_t>(*current->parent_id));
-        if (match_field(parent, cmp.lhs.field_kind, cmp.lhs.attribute, values, cmp.op)) return true;
+        if (cmp.lhs.field_kind == Operand::FieldKind::NodeId) {
+          if (match_field(parent, cmp.lhs.field_kind, cmp.lhs.attribute, values, cmp.op)) return true;
+        } else {
+          if (match_field(parent, cmp.lhs.field_kind, cmp.lhs.attribute, values, cmp.op)) return true;
+        }
         current = &parent;
       }
       return false;
     }
     if (cmp.lhs.axis == Operand::Axis::Descendant) {
+      if (cmp.lhs.field_kind == Operand::FieldKind::NodeId) {
+        return has_descendant_node_id(doc, children, node, values, cmp.op);
+      }
       return has_descendant_field(doc, children, node, cmp.lhs.field_kind, cmp.lhs.attribute, values, cmp.op);
     }
     return match_field(node, cmp.lhs.field_kind, cmp.lhs.attribute, values, cmp.op);

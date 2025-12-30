@@ -702,6 +702,13 @@ class Parser {
       operand.span = Span{current_.pos, current_.pos + current_.text.size()};
       return true;
     }
+    if (to_upper(current_.text) == "NODE_ID") {
+      advance();
+      operand.axis = Operand::Axis::Self;
+      operand.field_kind = Operand::FieldKind::NodeId;
+      operand.span = Span{current_.pos, current_.pos + current_.text.size()};
+      return true;
+    }
     if (to_upper(current_.text) == "PARENT_ID") {
       advance();
       operand.axis = Operand::Axis::Self;
@@ -725,12 +732,14 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
         operand.axis = Operand::Axis::Parent;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
         } else if (next == "TEXT") {
           operand.field_kind = Operand::FieldKind::Text;
+        } else if (next == "NODE_ID") {
+          operand.field_kind = Operand::FieldKind::NodeId;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -743,7 +752,7 @@ class Parser {
     if (to_upper(current_.text) == "CHILD") {
       advance();
       if (!consume(TokenType::Dot, "Expected . after child")) return false;
-      if (current_.type != TokenType::Identifier) return set_error("Expected attributes, tag, text, or parent_id after child");
+      if (current_.type != TokenType::Identifier) return set_error("Expected attributes, tag, text, node_id, or parent_id after child");
       std::string next = to_upper(current_.text);
       if (next == "ATTRIBUTES") {
         advance();
@@ -756,12 +765,14 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
         operand.axis = Operand::Axis::Child;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
         } else if (next == "TEXT") {
           operand.field_kind = Operand::FieldKind::Text;
+        } else if (next == "NODE_ID") {
+          operand.field_kind = Operand::FieldKind::NodeId;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -774,7 +785,7 @@ class Parser {
     if (to_upper(current_.text) == "ANCESTOR") {
       advance();
       if (!consume(TokenType::Dot, "Expected . after ancestor")) return false;
-      if (current_.type != TokenType::Identifier) return set_error("Expected attributes, tag, text, or parent_id after ancestor");
+      if (current_.type != TokenType::Identifier) return set_error("Expected attributes, tag, text, node_id, or parent_id after ancestor");
       std::string next = to_upper(current_.text);
       if (next == "ATTRIBUTES") {
         advance();
@@ -787,12 +798,14 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
         operand.axis = Operand::Axis::Ancestor;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
         } else if (next == "TEXT") {
           operand.field_kind = Operand::FieldKind::Text;
+        } else if (next == "NODE_ID") {
+          operand.field_kind = Operand::FieldKind::NodeId;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -805,7 +818,7 @@ class Parser {
     if (to_upper(current_.text) == "DESCENDANT") {
       advance();
       if (!consume(TokenType::Dot, "Expected . after descendant")) return false;
-      if (current_.type != TokenType::Identifier) return set_error("Expected attributes, tag, text, or parent_id after descendant");
+      if (current_.type != TokenType::Identifier) return set_error("Expected attributes, tag, text, node_id, or parent_id after descendant");
       std::string next = to_upper(current_.text);
       if (next == "ATTRIBUTES") {
         advance();
@@ -818,12 +831,14 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
         operand.axis = Operand::Axis::Descendant;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
         } else if (next == "TEXT") {
           operand.field_kind = Operand::FieldKind::Text;
+        } else if (next == "NODE_ID") {
+          operand.field_kind = Operand::FieldKind::NodeId;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -845,6 +860,12 @@ class Parser {
       if (to_upper(qualifier) == "TAG") {
         operand.axis = Operand::Axis::Self;
         operand.field_kind = Operand::FieldKind::Tag;
+        operand.span = Span{current_.pos, current_.pos};
+        return true;
+      }
+      if (to_upper(qualifier) == "NODE_ID") {
+        operand.axis = Operand::Axis::Self;
+        operand.field_kind = Operand::FieldKind::NodeId;
         operand.span = Span{current_.pos, current_.pos};
         return true;
       }
@@ -891,10 +912,18 @@ class Parser {
       advance();
       return true;
     }
+    if (to_upper(current_.text) == "NODE_ID") {
+      operand.axis = Operand::Axis::Self;
+      operand.field_kind = Operand::FieldKind::NodeId;
+      operand.qualifier = qualifier;
+      operand.span = Span{current_.pos, current_.pos + current_.text.size()};
+      advance();
+      return true;
+    }
     if (to_upper(current_.text) == "PARENT") {
       advance();
       if (!consume(TokenType::Dot, "Expected . after parent")) return false;
-      if (current_.type != TokenType::Identifier) return set_error("Expected attributes, tag, text, or parent_id after parent");
+      if (current_.type != TokenType::Identifier) return set_error("Expected attributes, tag, text, node_id, or parent_id after parent");
       std::string next = to_upper(current_.text);
       if (next == "ATTRIBUTES") {
         advance();
@@ -908,12 +937,14 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
         operand.axis = Operand::Axis::Parent;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
         } else if (next == "TEXT") {
           operand.field_kind = Operand::FieldKind::Text;
+        } else if (next == "NODE_ID") {
+          operand.field_kind = Operand::FieldKind::NodeId;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -941,12 +972,14 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
         operand.axis = Operand::Axis::Child;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
         } else if (next == "TEXT") {
           operand.field_kind = Operand::FieldKind::Text;
+        } else if (next == "NODE_ID") {
+          operand.field_kind = Operand::FieldKind::NodeId;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -974,12 +1007,14 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
         operand.axis = Operand::Axis::Ancestor;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
         } else if (next == "TEXT") {
           operand.field_kind = Operand::FieldKind::Text;
+        } else if (next == "NODE_ID") {
+          operand.field_kind = Operand::FieldKind::NodeId;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -1007,12 +1042,14 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
         operand.axis = Operand::Axis::Descendant;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
         } else if (next == "TEXT") {
           operand.field_kind = Operand::FieldKind::Text;
+        } else if (next == "NODE_ID") {
+          operand.field_kind = Operand::FieldKind::NodeId;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }

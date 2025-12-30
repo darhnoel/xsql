@@ -353,6 +353,21 @@ class LineEditor {
         continue;
       }
 
+      if (c == 9) {
+        std::vector<std::string> suggestions;
+        bool changed = completer_.complete(buffer, cursor, suggestions);
+        if (!suggestions.empty() && !changed) {
+          std::cout << "\n";
+          for (size_t i = 0; i < suggestions.size(); ++i) {
+            if (i > 0) std::cout << " ";
+            std::cout << suggestions[i];
+          }
+          std::cout << "\n";
+        }
+        redraw_line(buffer, cursor);
+        continue;
+      }
+
       if (c == 27) {
         char seq[6] = {0, 0, 0, 0, 0, 0};
         if (::read(STDIN_FILENO, &seq[0], 1) <= 0) continue;
@@ -599,6 +614,88 @@ class LineEditor {
   size_t cont_prompt_len_ = 0;
   int last_render_lines_ = 1;
   int last_cursor_line_ = 0;
+
+  class AutoCompleter {
+   public:
+    AutoCompleter() {
+      keywords_ = {
+          "select", "from", "where", "and", "or", "in", "limit", "to", "list", "table",
+          "count", "summarize", "order", "by", "asc", "desc", "document", "doc",
+          "attributes", "tag", "text", "parent", "child", "ancestor", "descendant",
+          "parent_id", "inner_html", "trim", "is", "null"
+      };
+      commands_ = {
+          ".help", ".load", ".mode", ".display_mode", ".max_rows", ".summarize", ".quit", ".q",
+          ":help", ":load", ":quit", ":exit"
+      };
+    }
+
+    bool complete(std::string& buffer, size_t& cursor, std::vector<std::string>& suggestions) const {
+      if (cursor > buffer.size()) cursor = buffer.size();
+      size_t start = cursor;
+      while (start > 0 && is_word_char(buffer[start - 1])) {
+        --start;
+      }
+      if (start == cursor) return false;
+      std::string word = buffer.substr(start, cursor - start);
+      if (word.empty()) return false;
+      bool is_cmd = word[0] == '.' || word[0] == ':';
+      const auto& list = is_cmd ? commands_ : keywords_;
+      std::string prefix = to_lower(word);
+      std::vector<std::string> matches;
+      for (const auto& cand : list) {
+        if (starts_with(to_lower(cand), prefix)) {
+          matches.push_back(cand);
+        }
+      }
+      if (matches.empty()) return false;
+      std::string common = longest_common_prefix(matches);
+      if (common.size() > word.size() || matches.size() == 1) {
+        buffer.replace(start, cursor - start, common);
+        cursor = start + common.size();
+        return true;
+      }
+      suggestions = matches;
+      return false;
+    }
+
+   private:
+    static bool is_word_char(char c) {
+      return std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '.' || c == ':';
+    }
+
+    static std::string to_lower(const std::string& s) {
+      std::string out;
+      out.reserve(s.size());
+      for (char c : s) {
+        out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+      }
+      return out;
+    }
+
+    static bool starts_with(const std::string& value, const std::string& prefix) {
+      return value.rfind(prefix, 0) == 0;
+    }
+
+    static std::string longest_common_prefix(const std::vector<std::string>& values) {
+      if (values.empty()) return "";
+      std::string prefix = values[0];
+      for (size_t i = 1; i < values.size(); ++i) {
+        size_t j = 0;
+        while (j < prefix.size() && j < values[i].size() && prefix[j] == values[i][j]) {
+          ++j;
+        }
+        prefix.resize(j);
+        if (prefix.empty()) break;
+      }
+      return prefix;
+    }
+
+    std::vector<std::string> keywords_;
+    std::vector<std::string> commands_;
+  };
+
+  AutoCompleter completer_;
 };
 
 std::string json_escape(const std::string& s) {
@@ -843,6 +940,56 @@ std::string build_table_json(const xsql::QueryResult& result) {
 #endif
 }
 }  // namespace
+
+std::string render_table_duckbox(const xsql::QueryResult::TableResult& table,
+                                 bool highlight,
+                                 bool is_tty,
+                                 size_t max_rows) {
+  size_t max_cols = 0;
+  for (const auto& row : table.rows) {
+    if (row.size() > max_cols) {
+      max_cols = row.size();
+    }
+  }
+  if (max_cols == 0) {
+    return "(empty table)";
+  }
+  xsql::QueryResult view;
+  size_t data_start = 0;
+  if (!table.rows.empty()) {
+    view.columns = table.rows.front();
+    data_start = 1;
+    if (view.columns.size() < max_cols) {
+      for (size_t i = view.columns.size(); i < max_cols; ++i) {
+        view.columns.push_back("col" + std::to_string(i + 1));
+      }
+    }
+    for (size_t i = 0; i < view.columns.size(); ++i) {
+      if (view.columns[i].empty()) {
+        view.columns[i] = "col" + std::to_string(i + 1);
+      }
+    }
+  } else {
+    view.columns.reserve(max_cols);
+    for (size_t i = 0; i < max_cols; ++i) {
+      view.columns.push_back("col" + std::to_string(i + 1));
+    }
+  }
+  for (size_t r = data_start; r < table.rows.size(); ++r) {
+    const auto& row_values = table.rows[r];
+    xsql::QueryResultRow row;
+    for (size_t i = 0; i < row_values.size(); ++i) {
+      row.attributes["col" + std::to_string(i + 1)] = row_values[i];
+    }
+    view.rows.push_back(std::move(row));
+  }
+  xsql::render::DuckboxOptions options;
+  options.max_width = 0;
+  options.max_rows = max_rows;
+  options.highlight = highlight;
+  options.is_tty = is_tty;
+  return xsql::render::render_duckbox(view, options);
+}
 
 std::string build_summary_json(const std::vector<std::pair<std::string, size_t>>& summary) {
 #ifdef XSQL_USE_NLOHMANN_JSON
@@ -1172,15 +1319,36 @@ int main(int argc, char** argv) {
               }
             }
           }
-          if (output_mode == "duckbox" && !result.to_list && !result.to_table) {
-            xsql::render::DuckboxOptions options;
-            options.max_width = 0;
-            options.max_rows = max_rows;
-            options.highlight = highlight;
-            options.is_tty = color;
-            std::cout << xsql::render::render_duckbox(result, options) << std::endl;
+          if (output_mode == "duckbox") {
+            if (result.to_table) {
+              if (result.tables.empty()) {
+                std::cout << "(empty table)" << std::endl;
+              } else {
+                for (size_t i = 0; i < result.tables.size(); ++i) {
+                  if (result.tables.size() > 1) {
+                    std::cout << "Table node_id=" << result.tables[i].node_id << std::endl;
+                  }
+                  std::cout << render_table_duckbox(result.tables[i], highlight, color, max_rows) << std::endl;
+                }
+              }
+            } else if (!result.to_list) {
+              xsql::render::DuckboxOptions options;
+              options.max_width = 0;
+              options.max_rows = max_rows;
+              options.highlight = highlight;
+              options.is_tty = color;
+              std::cout << xsql::render::render_duckbox(result, options) << std::endl;
+            } else {
+              std::string json_out = build_json_list(result);
+              last_full_output = json_out;
+              if (display_full) {
+                std::cout << colorize_json(json_out, color) << std::endl;
+              } else {
+                TruncateResult truncated = truncate_output(json_out, 10, 10);
+                std::cout << colorize_json(truncated.output, color) << std::endl;
+              }
+            }
           } else {
-            // Preserve JSON output for list/table results and legacy modes.
             std::string json_out = result.to_table ? build_table_json(result)
                                   : (result.to_list ? build_json_list(result) : build_json(result));
             last_full_output = json_out;
@@ -1232,13 +1400,34 @@ int main(int argc, char** argv) {
       }
     }
 
-    if (output_mode == "duckbox" && !result.to_list && !result.to_table) {
-      xsql::render::DuckboxOptions options;
-      options.max_width = 0;
-      options.max_rows = 40;
-      options.highlight = highlight;
-      options.is_tty = color;
-      std::cout << xsql::render::render_duckbox(result, options) << std::endl;
+    if (output_mode == "duckbox") {
+      if (result.to_table) {
+        if (result.tables.empty()) {
+          std::cout << "(empty table)" << std::endl;
+        } else {
+          for (size_t i = 0; i < result.tables.size(); ++i) {
+            if (result.tables.size() > 1) {
+              std::cout << "Table node_id=" << result.tables[i].node_id << std::endl;
+            }
+            std::cout << render_table_duckbox(result.tables[i], highlight, color, 40) << std::endl;
+          }
+        }
+      } else if (!result.to_list) {
+        xsql::render::DuckboxOptions options;
+        options.max_width = 0;
+        options.max_rows = 40;
+        options.highlight = highlight;
+        options.is_tty = color;
+        std::cout << xsql::render::render_duckbox(result, options) << std::endl;
+      } else {
+        std::string json_out = build_json_list(result);
+        if (output_mode == "plain") {
+          std::cout << json_out << std::endl;
+        } else {
+          TruncateResult truncated = truncate_output(json_out, 10, 10);
+          std::cout << colorize_json(truncated.output, color) << std::endl;
+        }
+      }
     } else {
       std::string json_out = result.to_table ? build_table_json(result)
                             : (result.to_list ? build_json_list(result) : build_json(result));

@@ -167,7 +167,7 @@ If multiple tables match, the output is a list of objects:
 [{ "node_id": 123, "rows": [[...], ...] }, ...]
 ```
 
-Note: `TO LIST()` and `TO TABLE()` always return JSON output (even in `--mode duckbox`).
+Note: `TO LIST()` always returns JSON output. `TO TABLE()` uses duckbox by default and JSON in `--mode json|plain`.
 
 ### LIMIT
 ```
@@ -231,6 +231,11 @@ SELECT summarize(*) FROM doc ORDER BY count DESC LIMIT 5;
 Filter by parent node id:
 ```
 SELECT span FROM doc WHERE parent_id = 1;
+```
+
+Filter by node id:
+```
+SELECT span FROM doc WHERE node_id = 1;
 ```
 
 Match elements with no attributes:

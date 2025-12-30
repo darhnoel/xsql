@@ -6,6 +6,9 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <clocale>
+#include <cwchar>
+#include <cstring>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -33,6 +36,42 @@ size_t detect_terminal_width() {
   }
   return 120;
 #endif
+}
+
+void ensure_locale() {
+  static bool initialized = false;
+  if (!initialized) {
+    std::setlocale(LC_CTYPE, "");
+    initialized = true;
+  }
+}
+
+size_t display_width(const std::string& value) {
+  ensure_locale();
+  mbstate_t state{};
+  size_t width = 0;
+  const char* ptr = value.c_str();
+  size_t remaining = value.size();
+  while (remaining > 0) {
+    wchar_t wc;
+    size_t len = std::mbrtowc(&wc, ptr, remaining, &state);
+    if (len == static_cast<size_t>(-1) || len == static_cast<size_t>(-2)) {
+      // Invalid or incomplete sequence: treat as single byte.
+      ++width;
+      ++ptr;
+      --remaining;
+      std::memset(&state, 0, sizeof(state));
+      continue;
+    }
+    if (len == 0) {
+      break;
+    }
+    int w = ::wcwidth(wc);
+    width += (w < 0) ? 1 : static_cast<size_t>(w);
+    ptr += len;
+    remaining -= len;
+  }
+  return width;
 }
 
 std::string sanitize_cell(std::string value) {
@@ -67,14 +106,49 @@ bool is_numeric(const std::string& value) {
 }
 
 std::string truncate_with_ellipsis(const std::string& value, size_t width) {
-  if (value.size() <= width) return value;
-  if (width <= 1) return value.substr(0, width);
-  return value.substr(0, width - 1) + "…";
+  if (display_width(value) <= width) return value;
+  if (width == 0) return "";
+  if (width == 1) return "…";
+  const std::string ellipsis = "…";
+  size_t ellipsis_width = display_width(ellipsis);
+  size_t target = (width > ellipsis_width) ? width - ellipsis_width : 0;
+  ensure_locale();
+  mbstate_t state{};
+  std::string out;
+  const char* ptr = value.c_str();
+  size_t remaining = value.size();
+  size_t used = 0;
+  while (remaining > 0 && used < target) {
+    wchar_t wc;
+    size_t len = std::mbrtowc(&wc, ptr, remaining, &state);
+    if (len == static_cast<size_t>(-1) || len == static_cast<size_t>(-2)) {
+      if (used + 1 > target) break;
+      out.push_back(*ptr);
+      ++ptr;
+      --remaining;
+      ++used;
+      std::memset(&state, 0, sizeof(state));
+      continue;
+    }
+    if (len == 0) {
+      break;
+    }
+    int w = ::wcwidth(wc);
+    size_t add = (w < 0) ? 1 : static_cast<size_t>(w);
+    if (used + add > target) break;
+    out.append(ptr, len);
+    ptr += len;
+    remaining -= len;
+    used += add;
+  }
+  out += ellipsis;
+  return out;
 }
 
 std::string pad_cell(const std::string& value, size_t width, bool right_align) {
-  if (value.size() >= width) return value;
-  size_t pad = width - value.size();
+  size_t w = display_width(value);
+  if (w >= width) return value;
+  size_t pad = width - w;
   if (right_align) {
     return std::string(pad, ' ') + value;
   }
@@ -161,11 +235,11 @@ std::string render_duckbox(const xsql::QueryResult& result, const DuckboxOptions
 
   std::vector<size_t> widths(columns.size(), 0);
   for (size_t i = 0; i < columns.size(); ++i) {
-    widths[i] = std::max(widths[i], columns[i].size());
+    widths[i] = std::max(widths[i], display_width(columns[i]));
   }
   for (const auto& row : table_rows) {
     for (size_t i = 0; i < row.size(); ++i) {
-      widths[i] = std::max(widths[i], row[i].size());
+      widths[i] = std::max(widths[i], display_width(row[i]));
     }
   }
   for (auto& w : widths) {

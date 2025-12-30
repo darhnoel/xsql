@@ -109,6 +109,7 @@ if (XSQL_BUILD_TESTS)
     parent_id_filter
     attributes_is_null
     attributes_is_not_null
+    node_id_filter
     to_table_flag
     to_list_flag
     attribute_projection_value
