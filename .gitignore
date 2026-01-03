@@ -16,3 +16,15 @@ Thumbs.db
 
 # ln
 xsql_cli
+
+# data files
+data/*
+demo/*
+demo_tests.txt
+notes/*
+
+# executable links
+xsql
+
+# test projects
+flex_test/*
