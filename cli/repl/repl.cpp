@@ -1,0 +1,330 @@
+#include "repl.h"
+
+#include <algorithm>
+#include <filesystem>
+#include <iostream>
+#include <optional>
+#include <sstream>
+#include <stdexcept>
+#include <unordered_map>
+#include <unistd.h>
+
+#include "cli_utils.h"
+#include "export/export_sinks.h"
+#include "html_parser.h"
+#include "render/duckbox_renderer.h"
+#include "ui/color.h"
+#include "repl/line_editor.h"
+
+namespace xsql::cli {
+
+int run_repl(ReplConfig& config) {
+  std::string active_source = config.input;
+  std::optional<std::string> active_html;
+  std::string last_full_output;
+  bool display_full = true;
+  size_t max_rows = 40;
+  std::string line;
+
+  if (!isatty(fileno(stdout))) {
+    config.color = false;
+    config.highlight = false;
+  }
+
+  std::string prompt = config.color ? (std::string(kColor.blue) + "xsql> " + kColor.reset) : "xsql> ";
+  LineEditor editor(5, prompt, 6);
+  editor.set_keyword_color(config.color);
+  std::string cont_prompt = config.color ? (std::string(kColor.cyan) + "----> " + kColor.reset) : "----> ";
+  editor.set_cont_prompt(cont_prompt, 5);
+
+  while (true) {
+    editor.set_prompt(prompt, 6);
+    if (!editor.read_line(line)) {
+      break;
+    }
+    line = sanitize_pasted_line(line);
+    if (line == ":quit" || line == ":exit" || line == ".quit" || line == ".q") {
+      break;
+    }
+    if (line == ".help" || line == ":help") {
+      std::cout << "Commands:\n";
+      std::cout << "  .help                 Show this help\n";
+      std::cout << "  .load <path|url>       Load input (or :load)\n";
+      std::cout << "  .mode duckbox|json|plain  Set output mode\n";
+      std::cout << "  .display_mode more|less   Control truncation\n";
+      std::cout << "  .max_rows <n|inf>        Set duckbox max rows (inf = no limit)\n";
+      std::cout << "  .summarize [doc|path|url]  Show tag counts\n";
+      std::cout << "  Query export: TO CSV('file.csv') / TO PARQUET('file.parquet')\n";
+      std::cout << "  .quit / .q             Exit\n";
+      continue;
+    }
+    if (line.rfind(".display_mode", 0) == 0) {
+      std::istringstream iss(line);
+      std::string cmd;
+      std::string mode;
+      iss >> cmd >> mode;
+      if (mode == "more") {
+        display_full = true;
+        std::cout << "Display mode: more" << std::endl;
+      } else if (mode == "less") {
+        display_full = false;
+        std::cout << "Display mode: less" << std::endl;
+      } else {
+        std::cerr << "Usage: .display_mode more|less" << std::endl;
+      }
+      continue;
+    }
+    if (line.rfind(".mode", 0) == 0) {
+      std::istringstream iss(line);
+      std::string cmd;
+      std::string mode;
+      iss >> cmd >> mode;
+      if (mode == "duckbox" || mode == "json" || mode == "plain") {
+        config.output_mode = mode;
+        std::cout << "Output mode: " << config.output_mode << std::endl;
+      } else {
+        std::cerr << "Usage: .mode duckbox|json|plain" << std::endl;
+      }
+      continue;
+    }
+    if (line.rfind(".max_rows", 0) == 0) {
+      std::istringstream iss(line);
+      std::string cmd;
+      std::string value;
+      iss >> cmd >> value;
+      if (value == "inf" || value == "infinite" || value == "unlimited") {
+        max_rows = 0;
+        std::cout << "Duckbox max rows: unlimited" << std::endl;
+      } else if (!value.empty()) {
+        try {
+          size_t parsed = std::stoull(value);
+          if (parsed == 0) {
+            std::cerr << "Use .max_rows inf for unlimited" << std::endl;
+          } else {
+            max_rows = parsed;
+            std::cout << "Duckbox max rows: " << max_rows << std::endl;
+          }
+        } catch (const std::exception&) {
+          std::cerr << "Usage: .max_rows <n|inf>" << std::endl;
+        }
+      } else {
+        std::cerr << "Usage: .max_rows <n|inf>" << std::endl;
+      }
+      continue;
+    }
+    if (line.rfind(".summarize", 0) == 0) {
+      std::istringstream iss(line);
+      std::string cmd;
+      std::string target;
+      iss >> cmd >> target;
+      target = trim_semicolon(target);
+      bool use_active = target.empty() || target == "doc" || target == "document";
+      if (use_active) {
+        if (active_html.has_value()) {
+          target = active_source;
+        } else if (!active_source.empty()) {
+          try {
+            active_html = load_html_input(active_source, config.timeout_ms);
+          } catch (const std::exception& ex) {
+            if (config.color) std::cerr << kColor.red;
+            std::cerr << "Error: " << ex.what() << std::endl;
+            if (config.color) std::cerr << kColor.reset;
+            continue;
+          }
+          target = active_source;
+        } else {
+          std::cerr << "No input loaded. Use .load <path|url> or start with --input <path|url>." << std::endl;
+          continue;
+        }
+      }
+      try {
+        std::string html;
+        if (use_active && active_html.has_value()) {
+          html = *active_html;
+        } else {
+          html = load_html_input(target, config.timeout_ms);
+        }
+        xsql::HtmlDocument doc = xsql::parse_html(html);
+        std::unordered_map<std::string, size_t> counts;
+        for (const auto& node : doc.nodes) {
+          ++counts[node.tag];
+        }
+        std::vector<std::pair<std::string, size_t>> summary;
+        summary.reserve(counts.size());
+        for (const auto& kv : counts) {
+          summary.emplace_back(kv.first, kv.second);
+        }
+        std::sort(summary.begin(), summary.end(),
+                  [](const auto& a, const auto& b) {
+                    if (a.second != b.second) return a.second > b.second;
+                    return a.first < b.first;
+                  });
+        if (config.output_mode == "duckbox") {
+          xsql::QueryResult result;
+          result.columns = {"tag", "count"};
+          for (const auto& item : summary) {
+            xsql::QueryResultRow row;
+            row.tag = item.first;
+            row.node_id = static_cast<int64_t>(item.second);
+            result.rows.push_back(std::move(row));
+          }
+          xsql::render::DuckboxOptions options;
+          options.max_width = 0;
+          options.max_rows = max_rows;
+          options.highlight = config.highlight;
+          options.is_tty = config.color;
+          std::cout << xsql::render::render_duckbox(result, options) << std::endl;
+        } else {
+          std::string json_out = build_summary_json(summary);
+          last_full_output = json_out;
+          if (display_full) {
+            std::cout << colorize_json(json_out, config.color) << std::endl;
+          } else {
+            TruncateResult truncated = truncate_output(json_out, 10, 10);
+            std::cout << colorize_json(truncated.output, config.color) << std::endl;
+          }
+        }
+        editor.reset_render_state();
+      } catch (const std::exception& ex) {
+        if (config.color) std::cerr << kColor.red;
+        std::cerr << "Error: " << ex.what() << std::endl;
+        if (config.color) std::cerr << kColor.reset;
+      }
+      continue;
+    }
+    if (line.rfind(":load", 0) == 0 || line.rfind(".load", 0) == 0) {
+      std::istringstream iss(line);
+      std::string cmd;
+      iss >> cmd;
+      std::string path;
+      iss >> path;
+      if (path.empty()) {
+        std::cerr << "Usage: .load <path|url> or :load <path|url>" << std::endl;
+        continue;
+      }
+      path = trim_semicolon(path);
+      if (path == "doc" || path == "document") {
+        // WHY: "doc" is a logical alias and should not be treated as a file path.
+        std::cerr << "Error: .load doc is not valid. Use .load <path|url> to load data." << std::endl;
+        continue;
+      }
+      if (is_url(path)) {
+#ifndef XSQL_USE_CURL
+        std::cerr << "Error: URL fetching is disabled (libcurl not available). Install libcurl and rebuild." << std::endl;
+        continue;
+#endif
+      } else {
+        if (!std::filesystem::exists(path)) {
+          std::cerr << "Error: file not found: " << path << std::endl;
+          continue;
+        }
+      }
+      try {
+        active_html = load_html_input(path, config.timeout_ms);
+      } catch (const std::exception& ex) {
+        if (config.color) std::cerr << kColor.red;
+        std::cerr << "Error: " << ex.what() << std::endl;
+        if (config.color) std::cerr << kColor.reset;
+        continue;
+      }
+      active_source = path;
+      std::cout << "Loaded: " << active_source << std::endl;
+      continue;
+    }
+    if (line.empty()) {
+      continue;
+    }
+    std::string query_text = trim_semicolon(line);
+    query_text = rewrite_from_path_if_needed(query_text);
+    editor.add_history(query_text);
+    try {
+      xsql::QueryResult result;
+      auto source = parse_query_source(query_text);
+      if (source.has_value() && source->kind == xsql::Source::Kind::Url) {
+        result = xsql::execute_query_from_url(source->value, query_text, config.timeout_ms);
+      } else if (source.has_value() && source->kind == xsql::Source::Kind::Path) {
+        result = xsql::execute_query_from_file(source->value, query_text);
+      } else {
+        if (active_source.empty() && !active_html.has_value()) {
+          if (config.color) std::cerr << kColor.red;
+          std::cerr << "No input loaded. Use :load <path|url> or start with --input <path|url>." << std::endl;
+          if (config.color) std::cerr << kColor.reset;
+          continue;
+        }
+        if (!active_html.has_value()) {
+          active_html = load_html_input(active_source, config.timeout_ms);
+        }
+        result = xsql::execute_query_from_document(*active_html, query_text);
+        if (!active_source.empty()) {
+          for (auto& row : result.rows) {
+            row.source_uri = active_source;
+          }
+        }
+      }
+      if (result.export_sink.kind != xsql::QueryResult::ExportSink::Kind::None) {
+        std::string export_error;
+        if (!xsql::cli::export_result(result, export_error)) {
+          throw std::runtime_error(export_error);
+        }
+        std::cout << "Wrote " << export_kind_label(result.export_sink.kind)
+                  << ": " << result.export_sink.path << std::endl;
+        editor.reset_render_state();
+        continue;
+      }
+      if (config.output_mode == "duckbox") {
+        if (result.to_table) {
+          if (result.tables.empty()) {
+            std::cout << "(empty table)" << std::endl;
+          } else {
+            for (size_t i = 0; i < result.tables.size(); ++i) {
+              if (result.tables.size() > 1) {
+                std::cout << "Table node_id=" << result.tables[i].node_id << std::endl;
+              }
+              std::cout << render_table_duckbox(result.tables[i], config.highlight, config.color, max_rows) << std::endl;
+            }
+          }
+        } else if (!result.to_list) {
+          xsql::render::DuckboxOptions options;
+          options.max_width = 0;
+          options.max_rows = max_rows;
+          options.highlight = config.highlight;
+          options.is_tty = config.color;
+          std::cout << xsql::render::render_duckbox(result, options) << std::endl;
+        } else {
+          std::string json_out = build_json_list(result);
+          last_full_output = json_out;
+          if (display_full) {
+            std::cout << colorize_json(json_out, config.color) << std::endl;
+          } else {
+            TruncateResult truncated = truncate_output(json_out, 10, 10);
+            std::cout << colorize_json(truncated.output, config.color) << std::endl;
+          }
+        }
+      } else {
+        std::string json_out = result.to_table ? build_table_json(result)
+                              : (result.to_list ? build_json_list(result) : build_json(result));
+        last_full_output = json_out;
+        if (config.output_mode == "plain") {
+          std::cout << json_out << std::endl;
+        } else if (display_full) {
+          std::cout << colorize_json(json_out, config.color) << std::endl;
+        } else {
+          TruncateResult truncated = truncate_output(json_out, 10, 10);
+          std::cout << colorize_json(truncated.output, config.color) << std::endl;
+        }
+      }
+      editor.reset_render_state();
+    } catch (const std::exception& ex) {
+      if (config.color) std::cerr << kColor.red;
+      std::cerr << "Error: " << ex.what() << std::endl;
+      if (config.color) std::cerr << kColor.reset;
+      if (config.color) std::cerr << kColor.yellow;
+      std::cerr << "Tip: Check SELECT/FROM/WHERE syntax." << std::endl;
+      if (config.color) std::cerr << kColor.reset;
+      editor.reset_render_state();
+    }
+  }
+  return 0;
+}
+
+}  // namespace xsql::cli

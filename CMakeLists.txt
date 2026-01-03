@@ -15,9 +15,20 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_library(xsql_core
   core/src/ast.cpp
   core/src/query_parser.cpp
+  core/src/parser/parser.cpp
+  core/src/parser/lexer.cpp
   core/src/html_parser.cpp
-  core/src/executor.cpp
-  core/src/xsql.cpp
+  core/src/html/parser_naive.cpp
+  core/src/html/parser_libxml2.cpp
+  core/src/executor/executor.cpp
+  core/src/executor/filter.cpp
+  core/src/executor/order.cpp
+  core/src/util/string_util.cpp
+  core/src/xsql/execute.cpp
+  core/src/xsql/io.cpp
+  core/src/xsql/validation.cpp
+  core/src/xsql/result_builder.cpp
+  core/src/xsql/table_extract.cpp
 )
 
 target_include_directories(xsql_core
@@ -92,6 +103,11 @@ endif()
 if (XSQL_BUILD_CLI)
   add_executable(xsql
     cli/main.cpp
+    cli/cli_args.cpp
+    cli/cli_utils.cpp
+    cli/repl/line_editor.cpp
+    cli/repl/repl.cpp
+    cli/ui/color.cpp
     cli/export/export_sinks.cpp
     cli/render/duckbox_renderer.cpp
   )

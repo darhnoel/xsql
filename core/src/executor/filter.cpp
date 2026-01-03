@@ -1,47 +1,18 @@
-#include "executor.h"
+#include "executor_internal.h"
 
 #include <algorithm>
 #include <cctype>
 #include <regex>
 
-namespace xsql {
+#include "../util/string_util.h"
+
+namespace xsql::executor_internal {
 
 namespace {
 
-std::string to_lower(std::string s) {
-  for (char& c : s) {
-    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  }
-  return s;
-}
-
-int compare_nullable_int(std::optional<int64_t> left, std::optional<int64_t> right) {
-  if (!left.has_value() && !right.has_value()) return 0;
-  if (!left.has_value()) return 1;
-  if (!right.has_value()) return -1;
-  if (*left < *right) return -1;
-  if (*left > *right) return 1;
-  return 0;
-}
-
-int compare_string(const std::string& left, const std::string& right) {
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
-}
-
-int compare_nodes(const HtmlNode& left, const HtmlNode& right, const std::string& field) {
-  if (field == "node_id") {
-    if (left.id < right.id) return -1;
-    if (left.id > right.id) return 1;
-    return 0;
-  }
-  if (field == "tag") return compare_string(left.tag, right.tag);
-  if (field == "text") return compare_string(left.text, right.text);
-  if (field == "parent_id") return compare_nullable_int(left.parent_id, right.parent_id);
-  return 0;
-}
-
+/// Splits a string on ASCII whitespace into tokens.
+/// MUST ignore repeated whitespace and MUST preserve token order.
+/// Inputs are strings; outputs are token vectors with no side effects.
 std::vector<std::string> split_ws(const std::string& s) {
   std::vector<std::string> out;
   size_t i = 0;
@@ -58,6 +29,9 @@ std::vector<std::string> split_ws(const std::string& s) {
   return out;
 }
 
+/// Parses a string as a strict int64 value.
+/// MUST reject partial parses and MUST return nullopt on errors.
+/// Inputs are strings; outputs are optional ints with no side effects.
 std::optional<int64_t> parse_int64(const std::string& value) {
   try {
     size_t idx = 0;
@@ -69,15 +43,18 @@ std::optional<int64_t> parse_int64(const std::string& value) {
   }
 }
 
-bool string_in_list(const std::string& value, const std::vector<std::string>& list) {
-  return std::find(list.begin(), list.end(), value) != list.end();
-}
-
-bool match_attribute(const HtmlNode& node, const std::string& attr, const std::vector<std::string>& values, bool is_in) {
+/// Matches an attribute value against a list of candidates.
+/// MUST treat class as whitespace-delimited tokens for membership checks.
+/// Inputs are node/attr/values; outputs are boolean with no side effects.
+bool match_attribute(const HtmlNode& node,
+                     const std::string& attr,
+                     const std::vector<std::string>& values,
+                     bool is_in) {
   auto it = node.attributes.find(attr);
   if (it == node.attributes.end()) return false;
 
   std::string attr_value = it->second;
+  // WHY: class is defined as a space-delimited token list in HTML.
   if (attr == "class") {
     auto tokens = split_ws(attr_value);
     for (const auto& token : tokens) {
@@ -92,6 +69,9 @@ bool match_attribute(const HtmlNode& node, const std::string& attr, const std::v
   return attr_value == values.front();
 }
 
+/// Matches a field (tag/text/attribute/node_id/parent_id) against values.
+/// MUST honor operator semantics and MUST treat regex patterns as ECMAScript.
+/// Inputs are node/field/values; outputs are boolean with no side effects.
 bool match_field(const HtmlNode& node,
                  Operand::FieldKind field_kind,
                  const std::string& attr,
@@ -163,12 +143,12 @@ bool match_field(const HtmlNode& node,
     }
     if (is_in) {
       for (const auto& v : values) {
-        if (node.tag == to_lower(v)) return true;
+        if (node.tag == util::to_lower(v)) return true;
       }
       return false;
     }
-    if (op == CompareExpr::Op::NotEq) return node.tag != to_lower(values.front());
-    return node.tag == to_lower(values.front());
+    if (op == CompareExpr::Op::NotEq) return node.tag != util::to_lower(values.front());
+    return node.tag == util::to_lower(values.front());
   }
   if (op == CompareExpr::Op::Regex) {
     try {
@@ -183,6 +163,9 @@ bool match_field(const HtmlNode& node,
   return node.text == values.front();
 }
 
+/// Checks whether any direct child matches a node_id predicate.
+/// MUST only inspect direct children and MUST return false on empty children.
+/// Inputs are doc/children/node/values; outputs are boolean with no side effects.
 bool has_child_node_id(const HtmlDocument& doc,
                        const std::vector<std::vector<int64_t>>& children,
                        const HtmlNode& node,
@@ -195,6 +178,9 @@ bool has_child_node_id(const HtmlDocument& doc,
   return false;
 }
 
+/// Checks whether any descendant matches a node_id predicate.
+/// MUST traverse the subtree and MUST return on first match for efficiency.
+/// Inputs are doc/children/node/values; outputs are boolean with no side effects.
 bool has_descendant_node_id(const HtmlDocument& doc,
                             const std::vector<std::vector<int64_t>>& children,
                             const HtmlNode& node,
@@ -214,6 +200,9 @@ bool has_descendant_node_id(const HtmlDocument& doc,
   return false;
 }
 
+/// Tests whether the axis target has a parent_id field present.
+/// MUST follow axis semantics for self/parent/child/ancestor/descendant.
+/// Inputs are doc/children/node/axis; outputs are boolean with no side effects.
 bool axis_has_parent_id(const HtmlDocument& doc,
                         const std::vector<std::vector<int64_t>>& children,
                         const HtmlNode& node,
@@ -256,6 +245,9 @@ bool axis_has_parent_id(const HtmlDocument& doc,
   return false;
 }
 
+/// Checks whether any descendant matches a field predicate.
+/// MUST traverse depth-first and MUST short-circuit on match.
+/// Inputs are doc/children/node/field; outputs are boolean with no side effects.
 bool has_descendant_field(const HtmlDocument& doc,
                           const std::vector<std::vector<int64_t>>& children,
                           const HtmlNode& node,
@@ -277,6 +269,9 @@ bool has_descendant_field(const HtmlDocument& doc,
   return false;
 }
 
+/// Checks whether any descendant defines a given attribute.
+/// MUST traverse the subtree and MUST short-circuit on first find.
+/// Inputs are doc/children/node/attr; outputs are boolean with no side effects.
 bool has_descendant_attribute_exists(const HtmlDocument& doc,
                                      const std::vector<std::vector<int64_t>>& children,
                                      const HtmlNode& node,
@@ -295,6 +290,9 @@ bool has_descendant_attribute_exists(const HtmlDocument& doc,
   return false;
 }
 
+/// Checks whether any direct child matches a field predicate.
+/// MUST only inspect immediate children and MUST short-circuit on match.
+/// Inputs are doc/children/node/field; outputs are boolean with no side effects.
 bool has_child_field(const HtmlDocument& doc,
                      const std::vector<std::vector<int64_t>>& children,
                      const HtmlNode& node,
@@ -309,6 +307,9 @@ bool has_child_field(const HtmlDocument& doc,
   return false;
 }
 
+/// Checks whether any direct child defines a given attribute.
+/// MUST only inspect immediate children and MUST short-circuit on find.
+/// Inputs are doc/children/node/attr; outputs are boolean with no side effects.
 bool has_child_attribute_exists(const HtmlDocument& doc,
                                 const std::vector<std::vector<int64_t>>& children,
                                 const HtmlNode& node,
@@ -320,10 +321,16 @@ bool has_child_attribute_exists(const HtmlDocument& doc,
   return false;
 }
 
+/// Reports whether a node has any direct children.
+/// MUST not traverse beyond the immediate child list.
+/// Inputs are children map/node; outputs are boolean with no side effects.
 bool has_child_any(const std::vector<std::vector<int64_t>>& children, const HtmlNode& node) {
   return !children.at(static_cast<size_t>(node.id)).empty();
 }
 
+/// Reports whether a node has any descendants.
+/// MUST short-circuit on the first descendant for performance.
+/// Inputs are children map/node; outputs are boolean with no side effects.
 bool has_descendant_any(const std::vector<std::vector<int64_t>>& children, const HtmlNode& node) {
   std::vector<int64_t> stack;
   stack.insert(stack.end(), children.at(static_cast<size_t>(node.id)).begin(),
@@ -336,6 +343,9 @@ bool has_descendant_any(const std::vector<std::vector<int64_t>>& children, const
   return false;
 }
 
+/// Tests whether an axis target defines a given attribute.
+/// MUST follow axis semantics and short-circuit on matches.
+/// Inputs are doc/children/node/axis/attr; outputs are boolean.
 bool axis_has_attribute(const HtmlDocument& doc,
                         const std::vector<std::vector<int64_t>>& children,
                         const HtmlNode& node,
@@ -364,6 +374,9 @@ bool axis_has_attribute(const HtmlDocument& doc,
   return has_descendant_attribute_exists(doc, children, node, attr);
 }
 
+/// Tests whether an axis target node exists at all.
+/// MUST treat self as always existing and others per axis rules.
+/// Inputs are doc/children/node/axis; outputs are boolean.
 bool axis_has_any_node(const HtmlDocument& doc,
                        const std::vector<std::vector<int64_t>>& children,
                        const HtmlNode& node,
@@ -377,6 +390,18 @@ bool axis_has_any_node(const HtmlDocument& doc,
   return has_descendant_any(children, node);
 }
 
+}  // namespace
+
+/// Checks membership of a string in a list with exact match.
+/// MUST be case-sensitive to preserve attribute semantics.
+/// Inputs are value/list; outputs are boolean with no side effects.
+bool string_in_list(const std::string& value, const std::vector<std::string>& list) {
+  return std::find(list.begin(), list.end(), value) != list.end();
+}
+
+/// Evaluates a boolean expression over the current node and document.
+/// MUST be deterministic and MUST honor axis/field semantics.
+/// Inputs are expr/doc/children/node; outputs are boolean with no side effects.
 bool eval_expr(const Expr& expr,
                const HtmlDocument& doc,
                const std::vector<std::vector<int64_t>>& children,
@@ -385,19 +410,19 @@ bool eval_expr(const Expr& expr,
     const auto& cmp = std::get<CompareExpr>(expr);
     std::vector<std::string> values = cmp.rhs.values;
     bool is_in = cmp.op == CompareExpr::Op::In;
-  if (cmp.op == CompareExpr::Op::IsNull || cmp.op == CompareExpr::Op::IsNotNull) {
-    bool exists = false;
-    if (cmp.lhs.field_kind == Operand::FieldKind::AttributesMap) {
-      exists = !node.attributes.empty();
-    } else if (cmp.lhs.field_kind == Operand::FieldKind::Attribute) {
-      exists = axis_has_attribute(doc, children, node, cmp.lhs.axis, cmp.lhs.attribute);
-    } else if (cmp.lhs.field_kind == Operand::FieldKind::NodeId) {
-      exists = axis_has_any_node(doc, children, node, cmp.lhs.axis);
-    } else if (cmp.lhs.field_kind == Operand::FieldKind::ParentId) {
-      exists = axis_has_parent_id(doc, children, node, cmp.lhs.axis);
-    } else {
-      exists = axis_has_any_node(doc, children, node, cmp.lhs.axis);
-    }
+    if (cmp.op == CompareExpr::Op::IsNull || cmp.op == CompareExpr::Op::IsNotNull) {
+      bool exists = false;
+      if (cmp.lhs.field_kind == Operand::FieldKind::AttributesMap) {
+        exists = !node.attributes.empty();
+      } else if (cmp.lhs.field_kind == Operand::FieldKind::Attribute) {
+        exists = axis_has_attribute(doc, children, node, cmp.lhs.axis, cmp.lhs.attribute);
+      } else if (cmp.lhs.field_kind == Operand::FieldKind::NodeId) {
+        exists = axis_has_any_node(doc, children, node, cmp.lhs.axis);
+      } else if (cmp.lhs.field_kind == Operand::FieldKind::ParentId) {
+        exists = axis_has_parent_id(doc, children, node, cmp.lhs.axis);
+      } else {
+        exists = axis_has_any_node(doc, children, node, cmp.lhs.axis);
+      }
       return (cmp.op == CompareExpr::Op::IsNull) ? !exists : exists;
     }
     if (cmp.lhs.axis == Operand::Axis::Parent) {
@@ -443,58 +468,4 @@ bool eval_expr(const Expr& expr,
   return left || right;
 }
 
-}  // namespace
-
-ExecuteResult execute_query(const Query& query, const HtmlDocument& doc, const std::string& source_uri) {
-  ExecuteResult result;
-  std::vector<std::string> select_tags;
-  select_tags.reserve(query.select_items.size());
-  bool select_all = false;
-  for (const auto& item : query.select_items) {
-    if (item.tag == "*") {
-      select_all = true;
-      break;
-    }
-    select_tags.push_back(to_lower(item.tag));
-  }
-
-  std::vector<std::vector<int64_t>> children(doc.nodes.size());
-  for (const auto& node : doc.nodes) {
-    if (node.parent_id.has_value()) {
-      children.at(static_cast<size_t>(*node.parent_id)).push_back(node.id);
-    }
-  }
-
-  for (const auto& node : doc.nodes) {
-    if (!select_all && !string_in_list(node.tag, select_tags)) continue;
-    if (query.where.has_value()) {
-      if (!eval_expr(*query.where, doc, children, node)) continue;
-    }
-    HtmlNode out = node;
-    out.tag = node.tag;
-    result.nodes.push_back(out);
-  }
-
-  if (!query.order_by.empty()) {
-    std::stable_sort(result.nodes.begin(), result.nodes.end(),
-                     [&](const HtmlNode& left, const HtmlNode& right) {
-                       for (const auto& order_by : query.order_by) {
-                         int cmp = compare_nodes(left, right, order_by.field);
-                         if (cmp == 0) continue;
-                         if (order_by.descending) {
-                           return cmp > 0;
-                         }
-                         return cmp < 0;
-                       }
-                       return false;
-                     });
-  }
-
-  if (query.limit.has_value() && result.nodes.size() > *query.limit) {
-    result.nodes.resize(*query.limit);
-  }
-
-  return result;
-}
-
-}  // namespace xsql
+}  // namespace xsql::executor_internal
