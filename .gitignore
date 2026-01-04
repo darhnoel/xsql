@@ -37,8 +37,8 @@ python/xsql/env/*
 python/xsql/build/*
 python/xsql/dist/*
 python/xsql/__pycache__/*
+python/xsql/_core.cpython-*
 python/xsql.egg-info/*
-python/_core.cpython-*
 python/tests/__pycache__/*
 
 # local tests
