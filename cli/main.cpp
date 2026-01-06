@@ -8,7 +8,7 @@
 #include "render/duckbox_renderer.h"
 #include "cli_args.h"
 #include "cli_utils.h"
-#include "repl/repl.h"
+#include "repl/core/repl.h"
 #include "ui/color.h"
 
 using namespace xsql::cli;

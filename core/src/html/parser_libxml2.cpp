@@ -12,6 +12,47 @@ namespace xsql {
 
 namespace {
 
+/// Attempts to extract the declared charset from the HTML head.
+/// MUST only scan a small prefix to avoid expensive full-document copies.
+/// Inputs are raw HTML; outputs are lowercase charset tokens or empty string.
+std::string extract_charset(const std::string& html) {
+  const size_t limit = std::min<size_t>(html.size(), 8192);
+  std::string head = util::to_lower(html.substr(0, limit));
+  size_t pos = head.find("charset=");
+  if (pos == std::string::npos) {
+    return "";
+  }
+  pos += 8;
+  while (pos < head.size() && std::isspace(static_cast<unsigned char>(head[pos]))) {
+    ++pos;
+  }
+  if (pos >= head.size()) {
+    return "";
+  }
+  char quote = 0;
+  if (head[pos] == '"' || head[pos] == '\'') {
+    quote = head[pos];
+    ++pos;
+  }
+  size_t end = pos;
+  while (end < head.size()) {
+    char c = head[end];
+    if (quote) {
+      if (c == quote) break;
+    } else if (std::isspace(static_cast<unsigned char>(c)) || c == ';' || c == '>') {
+      break;
+    }
+    if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' || c == '.')) {
+      break;
+    }
+    ++end;
+  }
+  if (end <= pos) {
+    return "";
+  }
+  return head.substr(pos, end - pos);
+}
+
 /// Appends text nodes to all open elements in the stack.
 /// MUST preserve document order and MUST ignore null/empty text.
 /// Inputs are doc/stack/text; outputs are updated node.text values.
@@ -87,12 +128,14 @@ void walk_node(HtmlDocument& doc, xmlNode* node, std::vector<int64_t>& stack) {
 /// Inputs are HTML strings; outputs are HtmlDocument with no side effects.
 HtmlDocument parse_html_libxml2(const std::string& html) {
   HtmlDocument doc;
+  std::string charset = extract_charset(html);
+  const char* encoding = charset.empty() ? "UTF-8" : charset.c_str();
   // WHY: recovery mode handles malformed HTML commonly found on the web.
   htmlDocPtr html_doc = htmlReadMemory(
       html.data(),
       static_cast<int>(html.size()),
       nullptr,
-      nullptr,
+      encoding,
       HTML_PARSE_RECOVER | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING);
   if (!html_doc) {
     return doc;

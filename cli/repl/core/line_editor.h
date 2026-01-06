@@ -5,7 +5,11 @@
 #include <string>
 #include <vector>
 
+#include "repl/state/history.h"
+
 namespace xsql::cli {
+
+class AutoCompleter;
 
 /// Provides interactive line editing with history and multi-line support.
 /// MUST operate only on TTY input and MUST fall back to std::getline otherwise.
@@ -51,19 +55,12 @@ class LineEditor {
   /// MUST keep cursor math consistent with wrapping and continuation prompts.
   /// Inputs are buffer/cursor; side effects include terminal escape output.
   void redraw_line(const std::string& buffer, size_t cursor);
-  /// Renders the buffer with optional keyword coloring.
-  /// MUST preserve literal text in quotes and MUST not alter buffer content.
-  /// Inputs are buffer text; side effects include terminal writes.
-  void render_buffer(const std::string& buffer);
   /// Checks whether a token should be colored as a SQL keyword.
   /// MUST be case-insensitive and MUST remain synchronized with keywords list.
   /// Inputs are a token string; outputs are boolean with no side effects.
   static bool is_sql_keyword(const std::string& word);
 
-  size_t max_history_;
-  std::vector<std::string> history_;
-  size_t history_index_ = 0;
-  std::string current_buffer_;
+  History history_;
   std::string prompt_;
   size_t prompt_len_ = 0;
   std::string cont_prompt_;
@@ -72,7 +69,6 @@ class LineEditor {
   int last_cursor_line_ = 0;
   bool keyword_color_ = false;
 
-  class AutoCompleter;
   std::unique_ptr<AutoCompleter> completer_;
 };
 

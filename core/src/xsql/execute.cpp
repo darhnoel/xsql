@@ -32,6 +32,20 @@ QueryResult execute_query_from_html(const std::string& html,
   xsql_internal::validate_predicates(*parsed.query);
   auto inner_html_depth = xsql_internal::find_inner_html_depth(*parsed.query);
   const Query::SelectItem* trim_item = xsql_internal::find_trim_item(*parsed.query);
+  bool use_text_function = false;
+  bool use_inner_html_function = false;
+  for (const auto& item : parsed.query->select_items) {
+    if (item.field.has_value() && *item.field == "text" && item.text_function) {
+      use_text_function = true;
+    }
+    if (item.field.has_value() && *item.field == "inner_html" && item.inner_html_function) {
+      use_inner_html_function = true;
+    }
+  }
+  std::optional<size_t> effective_inner_html_depth = inner_html_depth;
+  if (!effective_inner_html_depth.has_value() && use_inner_html_function) {
+    effective_inner_html_depth = 1;
+  }
 
   HtmlDocument doc = parse_html(html);
   ExecuteResult exec = execute_query(*parsed.query, doc, source_uri);
@@ -123,9 +137,9 @@ QueryResult execute_query_from_html(const std::string& html,
     QueryResultRow row;
     row.node_id = node.id;
     row.tag = node.tag;
-    row.text = node.text;
-    row.inner_html = inner_html_depth.has_value()
-                         ? xsql_internal::limit_inner_html(node.inner_html, *inner_html_depth)
+    row.text = use_text_function ? xsql_internal::extract_direct_text(node.inner_html) : node.text;
+    row.inner_html = effective_inner_html_depth.has_value()
+                         ? xsql_internal::limit_inner_html(node.inner_html, *effective_inner_html_depth)
                          : node.inner_html;
     row.attributes = node.attributes;
     row.source_uri = source_uri;

@@ -106,14 +106,34 @@ if (XSQL_BUILD_CLI)
     cli/main.cpp
     cli/cli_args.cpp
     cli/cli_utils.cpp
-    cli/repl/line_editor.cpp
-    cli/repl/repl.cpp
+    cli/repl/core/line_editor.cpp
+    cli/repl/ui/autocomplete.cpp
+    cli/repl/state/history.cpp
+    cli/repl/input/terminal.cpp
+    cli/repl/ui/render.cpp
+    cli/repl/input/text_util.cpp
+    cli/repl/core/repl.cpp
+    cli/repl/commands/registry.cpp
+    cli/repl/commands/help_command.cpp
+    cli/repl/commands/display_mode_command.cpp
+    cli/repl/commands/mode_command.cpp
+    cli/repl/commands/max_rows_command.cpp
+    cli/repl/commands/summarize_command.cpp
+    cli/repl/commands/load_command.cpp
+    cli/repl/commands/plugin_command.cpp
+    cli/repl/commands/plugin_install_command.cpp
+    cli/repl/commands/plugin_registry.cpp
+    cli/repl/commands/summarize_content_command.cpp
+    cli/repl/plugin_manager.cpp
     cli/ui/color.cpp
     cli/export/export_sinks.cpp
     cli/render/duckbox_renderer.cpp
   )
   target_link_libraries(xsql PRIVATE xsql_core)
-  target_include_directories(xsql PRIVATE core/src cli)
+  target_include_directories(xsql PRIVATE core/src core/include cli)
+  if (UNIX AND NOT APPLE)
+    target_link_libraries(xsql PRIVATE dl)
+  endif()
   if (XSQL_WITH_NLOHMANN_JSON)
     find_package(nlohmann_json CONFIG)
     if (nlohmann_json_FOUND)
@@ -145,11 +165,32 @@ if (XSQL_BUILD_TESTS)
     tests/test_order_by.cpp
     tests/test_duckbox.cpp
     tests/test_exports.cpp
+    tests/test_repl.cpp
+    cli/repl/core/line_editor.cpp
+    cli/repl/ui/autocomplete.cpp
+    cli/repl/state/history.cpp
+    cli/repl/input/terminal.cpp
+    cli/repl/ui/render.cpp
+    cli/repl/input/text_util.cpp
+    cli/repl/plugin_manager.cpp
+    cli/repl/commands/registry.cpp
+    cli/repl/commands/help_command.cpp
+    cli/repl/commands/display_mode_command.cpp
+    cli/repl/commands/mode_command.cpp
+    cli/repl/commands/max_rows_command.cpp
+    cli/repl/commands/summarize_command.cpp
+    cli/repl/commands/load_command.cpp
+    cli/repl/commands/plugin_command.cpp
+    cli/repl/commands/plugin_install_command.cpp
+    cli/repl/commands/plugin_registry.cpp
+    cli/repl/commands/summarize_content_command.cpp
+    cli/cli_utils.cpp
+    cli/ui/color.cpp
     cli/export/export_sinks.cpp
     cli/render/duckbox_renderer.cpp
   )
   target_link_libraries(xsql_tests PRIVATE xsql_core)
-  target_include_directories(xsql_tests PRIVATE cli tests)
+  target_include_directories(xsql_tests PRIVATE cli core/src core/include tests)
   if (XSQL_ARROW_TARGET AND XSQL_PARQUET_TARGET)
     target_link_libraries(xsql_tests PRIVATE ${XSQL_ARROW_TARGET} ${XSQL_PARQUET_TARGET})
     target_compile_definitions(xsql_tests PRIVATE XSQL_USE_ARROW)

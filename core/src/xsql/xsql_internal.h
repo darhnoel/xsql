@@ -76,5 +76,9 @@ void collect_rows(const HtmlDocument& doc,
 /// MUST preserve tag balance up to max_depth and MUST be deterministic.
 /// Inputs are HTML and depth; outputs are truncated HTML strings.
 std::string limit_inner_html(const std::string& html, size_t max_depth);
+/// Extracts direct text nodes from inner_html without nested descendants.
+/// MUST ignore text inside child tags and MUST preserve order.
+/// Inputs are HTML strings; outputs are text-only strings.
+std::string extract_direct_text(const std::string& html);
 
 }  // namespace xsql::xsql_internal
