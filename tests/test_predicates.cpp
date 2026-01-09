@@ -45,6 +45,15 @@ void test_regex_attribute() {
   expect_eq(result.rows.size(), 1, "regex attribute");
 }
 
+void test_parenthesized_predicates() {
+  std::string html =
+      "<a id='keep' href='x'></a><a id='keep' href='y'></a><a id='skip' href='y'></a>";
+  auto result = run_query(html,
+                          "SELECT a FROM document WHERE attributes.id = 'keep' AND "
+                          "(attributes.href = 'x' OR attributes.href = 'y')");
+  expect_eq(result.rows.size(), 2, "parenthesized predicates");
+}
+
 }  // namespace
 
 void register_predicate_tests(std::vector<TestCase>& tests) {
@@ -55,4 +64,5 @@ void register_predicate_tests(std::vector<TestCase>& tests) {
   tests.push_back({"is_null_attribute", test_is_null_attribute});
   tests.push_back({"text_not_equal", test_text_not_equal});
   tests.push_back({"regex_attribute", test_regex_attribute});
+  tests.push_back({"parenthesized_predicates", test_parenthesized_predicates});
 }

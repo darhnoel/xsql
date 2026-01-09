@@ -566,6 +566,14 @@ class Parser {
   /// MUST validate operators and value list cardinality.
   /// Inputs are tokens; outputs are CompareExpr or errors.
   bool parse_cmp_expr(Expr& out) {
+    if (current_.type == TokenType::LParen) {
+      advance();
+      Expr inner;
+      if (!parse_expr(inner)) return false;
+      if (!consume(TokenType::RParen, "Expected ) to close expression")) return false;
+      out = inner;
+      return true;
+    }
     Operand operand;
     if (!parse_operand(operand)) return false;
 
