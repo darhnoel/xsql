@@ -224,6 +224,13 @@ void validate_predicates(const Query& query) {
           throw std::runtime_error("attributes supports only IS NULL or IS NOT NULL");
         }
       }
+      if (cmp.op == CompareExpr::Op::Regex) {
+        for (const auto& value : cmp.rhs.values) {
+          if (value.size() > kMaxRegexLength) {
+            throw std::runtime_error("Regex pattern exceeds maximum length");
+          }
+        }
+      }
       return;
     }
     const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
@@ -233,6 +240,15 @@ void validate_predicates(const Query& query) {
 
   if (query.where.has_value()) {
     visit(*query.where);
+  }
+}
+
+/// Validates LIMIT values to prevent excessive output sizes.
+/// MUST enforce configured caps for predictable execution time.
+/// Inputs are Query objects; outputs are exceptions on failure.
+void validate_limits(const Query& query) {
+  if (query.limit.has_value() && *query.limit > kMaxLimit) {
+    throw std::runtime_error("LIMIT exceeds maximum allowed rows");
   }
 }
 

@@ -18,6 +18,7 @@ void register_export_tests(std::vector<TestCase>& tests);
 void register_repl_tests(std::vector<TestCase>& tests);
 void register_malformed_html_tests(std::vector<TestCase>& tests);
 void register_fragments_tests(std::vector<TestCase>& tests);
+void register_guardrails_tests(std::vector<TestCase>& tests);
 
 int main(int argc, char** argv) {
   std::vector<TestCase> tests;
@@ -35,6 +36,7 @@ int main(int argc, char** argv) {
   register_repl_tests(tests);
   register_malformed_html_tests(tests);
   register_fragments_tests(tests);
+  register_guardrails_tests(tests);
 
   if (argc > 1) {
     std::string target = argv[1];

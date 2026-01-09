@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -8,6 +9,13 @@
 #include "../html_parser.h"
 
 namespace xsql::xsql_internal {
+
+constexpr size_t kMaxLimit = 100000;
+constexpr size_t kMaxRegexLength = 1024;
+constexpr size_t kMaxRawHtmlBytes = 5 * 1024 * 1024;
+constexpr size_t kMaxFragmentCount = 1000;
+constexpr size_t kMaxFragmentBytes = 5 * 1024 * 1024;
+constexpr size_t kMaxFragmentHtmlBytes = 1 * 1024 * 1024;
 
 /// Reads a file into memory for query execution helpers.
 /// MUST throw on IO failures and MUST not perform network access.
@@ -42,6 +50,10 @@ void validate_to_table(const Query& query);
 /// MUST reject invalid paths and MUST not mutate the query.
 /// Inputs are Query objects; outputs are exceptions on failure.
 void validate_export_sink(const Query& query);
+/// Validates LIMIT values to avoid unbounded resource usage.
+/// MUST enforce configured caps and MUST not mutate the query.
+/// Inputs are Query objects; outputs are exceptions on failure.
+void validate_limits(const Query& query);
 
 /// Checks whether a query selects only the table tag.
 /// MUST return false for projected fields or aggregates.

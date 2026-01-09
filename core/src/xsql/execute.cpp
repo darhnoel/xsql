@@ -70,6 +70,7 @@ FragmentSource collect_fragments(const QueryResult& result) {
   }
   const std::string& field = result.columns[0];
   FragmentSource out;
+  size_t total_bytes = 0;
   for (const auto& row : result.rows) {
     std::optional<std::string> value = field_value_string(row, field);
     if (!value.has_value()) {
@@ -81,6 +82,16 @@ FragmentSource collect_fragments(const QueryResult& result) {
     }
     if (!looks_like_html_fragment(trimmed)) {
       throw std::runtime_error("FRAGMENTS expects HTML strings (use inner_html(...) or RAW('<...>'))");
+    }
+    if (trimmed.size() > xsql_internal::kMaxFragmentHtmlBytes) {
+      throw std::runtime_error("FRAGMENTS HTML fragment exceeds maximum size");
+    }
+    total_bytes += trimmed.size();
+    if (out.fragments.size() >= xsql_internal::kMaxFragmentCount) {
+      throw std::runtime_error("FRAGMENTS exceeds maximum fragment count");
+    }
+    if (total_bytes > xsql_internal::kMaxFragmentBytes) {
+      throw std::runtime_error("FRAGMENTS exceeds maximum total HTML size");
     }
     out.fragments.push_back(std::move(trimmed));
   }
@@ -232,6 +243,7 @@ void validate_query(const Query& query) {
   xsql_internal::validate_export_sink(query);
   xsql_internal::validate_qualifiers(query);
   xsql_internal::validate_predicates(query);
+  xsql_internal::validate_limits(query);
 }
 
 QueryResult execute_query_with_source(const Query& query,
@@ -239,6 +251,9 @@ QueryResult execute_query_with_source(const Query& query,
                                       const std::string& default_source_uri) {
   std::string effective_source_uri = default_source_uri;
   if (query.source.kind == Source::Kind::RawHtml) {
+    if (query.source.value.size() > xsql_internal::kMaxRawHtmlBytes) {
+      throw std::runtime_error("RAW() HTML exceeds maximum size");
+    }
     HtmlDocument doc = parse_html(query.source.value);
     effective_source_uri = "raw";
     return execute_query_ast(query, doc, effective_source_uri);
@@ -246,6 +261,9 @@ QueryResult execute_query_with_source(const Query& query,
   if (query.source.kind == Source::Kind::Fragments) {
     FragmentSource fragments;
     if (query.source.fragments_raw.has_value()) {
+      if (query.source.fragments_raw->size() > xsql_internal::kMaxRawHtmlBytes) {
+        throw std::runtime_error("FRAGMENTS RAW() input exceeds maximum size");
+      }
       fragments.fragments.push_back(*query.source.fragments_raw);
     } else if (query.source.fragments_query != nullptr) {
       const Query& subquery = *query.source.fragments_query;

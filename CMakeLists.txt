@@ -168,6 +168,7 @@ if (XSQL_BUILD_TESTS)
     tests/test_malformed_html.cpp
     tests/test_repl.cpp
     tests/test_fragments.cpp
+    tests/test_guardrails.cpp
     cli/repl/core/line_editor.cpp
     cli/repl/ui/autocomplete.cpp
     cli/repl/state/history.cpp
