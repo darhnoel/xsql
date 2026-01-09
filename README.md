@@ -149,9 +149,18 @@ SELECT <tag_list> FROM <source> [WHERE <expr>] [LIMIT <n>]
 FROM document
 FROM 'path.html'
 FROM 'https://example.com'   (URL fetching requires libcurl)
+FROM RAW('<div class="card"></div>')
+FROM FRAGMENTS(RAW('<ul><li>1</li><li>2</li></ul>')) AS frag
+FROM FRAGMENTS(SELECT inner_html(div) FROM doc WHERE attributes.class = 'pagination') AS frag
 FROM doc                     (alias for document)
 FROM document AS doc
 ```
+
+Notes:
+- `RAW('<html>')` parses an inline HTML string as the document source.
+- `FRAGMENTS(...)` builds a temporary document by concatenating HTML fragments.
+- `FRAGMENTS` accepts either `RAW('<html>')` or a subquery returning a single HTML string column (use `inner_html(...)`).
+- `FRAGMENTS` subqueries cannot use file or URL sources.
 
 ### Tags
 ```
@@ -313,6 +322,11 @@ SELECT a.href, a.text FROM doc WHERE attributes.href IS NOT NULL TO CSV('links.c
 Export to Parquet:
 ```
 SELECT * FROM doc TO PARQUET('nodes.parquet');
+```
+
+Query HTML fragments:
+```
+SELECT li FROM FRAGMENTS(SELECT inner_html(ul) FROM doc WHERE attributes.id = 'menu') AS frag;
 ```
 
 Order results:
