@@ -1,4 +1,4 @@
-# XSQL Documentation (v1.0.0)
+# XSQL Documentation (v1.0.1)
 
 XSQL is a SQL-style query language for static HTML. It treats each HTML element
 as a row in a node table and lets you filter by tag and attributes. The project
@@ -182,6 +182,8 @@ Supported operators:
 - `<>` / `!=`
 - `IS NULL` / `IS NOT NULL`
 - `~` (regex, ECMAScript)
+- `CONTAINS` (attributes only, case-insensitive)
+- `HAS_DIRECT_TEXT` (case-insensitive substring match on direct text)
 - `AND`, `OR`
 
 Attribute references:
@@ -191,6 +193,7 @@ parent.attributes.class = 'menu'
 child.attributes.href <> ''
 ancestor.attributes.id = 'root'
 descendant.attributes.class IN ('nav','top')
+attributes.href CONTAINS 'example'
 ```
 
 Field references:
@@ -200,6 +203,7 @@ tag = 'div'
 parent.tag = 'section'
 child.tag = 'a'
 ancestor.text ~ 'error|warning'
+div HAS_DIRECT_TEXT 'login'
 ```
 
 Shorthand attribute filters:
@@ -290,6 +294,18 @@ SELECT COUNT(link) FROM doc WHERE attributes.rel = "preload"
 Use `~` with ECMAScript regex:
 ```
 SELECT a FROM doc WHERE attributes.href ~ '.*\\.pdf$'
+```
+
+### Contains (attributes)
+Case-insensitive substring match for attribute values:
+```
+SELECT a FROM doc WHERE attributes.href CONTAINS 'techkhmer'
+```
+
+### Direct Text
+Case-insensitive substring match on direct text only (excluding nested tags):
+```
+SELECT div FROM doc WHERE div HAS_DIRECT_TEXT 'computer science'
 ```
 
 ## Examples
