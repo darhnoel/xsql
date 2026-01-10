@@ -101,13 +101,30 @@ void render_buffer(const std::string& buffer,
                    const std::string& cont_prompt) {
   bool in_single = false;
   bool in_double = false;
+  bool command_line = false;
+  bool at_line_start = true;
+  bool line_has_prefix = false;
   size_t i = 0;
   while (i < buffer.size()) {
     char c = buffer[i];
     if (c == '\n') {
       std::cout << "\n" << cont_prompt;
+      command_line = false;
+      at_line_start = true;
+      line_has_prefix = false;
       ++i;
       continue;
+    }
+    if (at_line_start) {
+      if (!line_has_prefix && (c == '.' || c == ':')) {
+        command_line = true;
+        line_has_prefix = true;
+      } else if (!std::isspace(static_cast<unsigned char>(c))) {
+        line_has_prefix = true;
+      }
+      if (!std::isspace(static_cast<unsigned char>(c))) {
+        at_line_start = false;
+      }
     }
     if (!in_double && c == '\'') {
       in_single = !in_single;
@@ -132,7 +149,7 @@ void render_buffer(const std::string& buffer,
         break;
       }
       std::string word = buffer.substr(start, i - start);
-      if (keyword_color && is_sql_keyword(word)) {
+      if (keyword_color && !command_line && is_sql_keyword(word)) {
         std::cout << kColor.cyan << word << kColor.reset;
       } else {
         std::cout << word;
