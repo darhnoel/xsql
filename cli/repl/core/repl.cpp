@@ -35,8 +35,8 @@ int run_repl(ReplConfig& config) {
   std::string prompt = config.color ? (std::string(kColor.blue) + "xsql> " + kColor.reset) : "xsql> ";
   LineEditor editor(5, prompt, 6);
   editor.set_keyword_color(config.color);
-  std::string cont_prompt = config.color ? (std::string(kColor.cyan) + "----> " + kColor.reset) : "----> ";
-  editor.set_cont_prompt(cont_prompt, 5);
+  std::string cont_prompt = config.color ? (std::string(kColor.cyan) + "> " + kColor.reset) : "> ";
+  editor.set_cont_prompt(cont_prompt, 2);
   CommandRegistry registry;
   register_default_commands(registry);
   PluginManager plugin_manager(registry);

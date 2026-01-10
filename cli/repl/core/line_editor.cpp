@@ -312,7 +312,7 @@ void LineEditor::redraw_line(const std::string& buffer, size_t cursor) {
       line_start = next + 1;
       ++line;
     }
-    cursor_col = static_cast<int>(column_width(buffer, line_start, cursor));
+    cursor_col = static_cast<int>(cont_prompt_len_ + column_width(buffer, line_start, cursor));
   } else {
     cursor_col = static_cast<int>(prompt_len_ + column_width(buffer, 0, cursor));
   }
