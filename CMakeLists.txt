@@ -246,6 +246,9 @@ if (XSQL_BUILD_TESTS)
     is_null_attribute
     text_not_equal
     regex_attribute
+    contains_attribute
+    has_direct_text
+    parenthesized_predicates
     duckbox_basic_table
     duckbox_truncate_cells
     duckbox_maxrows_truncate
@@ -253,6 +256,19 @@ if (XSQL_BUILD_TESTS)
     duckbox_null_rendering
     csv_escaping
     csv_export_integration
+    raw_source_literal
+    fragments_from_raw
+    fragments_from_inner_html
+    fragments_non_html_error
+    guardrails_limit_cap
+    guardrails_regex_length_cap
+    guardrails_fragments_count_cap
+    malformed_missing_closing_tags
+    malformed_mismatched_nesting
+    malformed_junk_bytes_no_throw
+    summarize_content_basic
+    summarize_content_khmer_requires_plugin
+    summarize_content_max_tokens
   )
   if (XSQL_ARROW_TARGET AND XSQL_PARQUET_TARGET)
     list(APPEND XSQL_TESTS parquet_export_smoke)

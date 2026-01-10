@@ -45,6 +45,18 @@ void test_regex_attribute() {
   expect_eq(result.rows.size(), 1, "regex attribute");
 }
 
+void test_contains_attribute() {
+  std::string html = "<a href='https://techkhmer.net'></a><a href='https://example.com'></a>";
+  auto result = run_query(html, "SELECT a FROM document WHERE attributes.href CONTAINS 'TECHKHMEr'");
+  expect_eq(result.rows.size(), 1, "contains attribute");
+}
+
+void test_has_direct_text() {
+  std::string html = "<div>Something <section>Else</section></div><div><section>Something</section></div>";
+  auto result = run_query(html, "SELECT div FROM document WHERE div HAS_DIRECT_TEXT 'something'");
+  expect_eq(result.rows.size(), 1, "has direct text");
+}
+
 void test_parenthesized_predicates() {
   std::string html =
       "<a id='keep' href='x'></a><a id='keep' href='y'></a><a id='skip' href='y'></a>";
@@ -64,5 +76,7 @@ void register_predicate_tests(std::vector<TestCase>& tests) {
   tests.push_back({"is_null_attribute", test_is_null_attribute});
   tests.push_back({"text_not_equal", test_text_not_equal});
   tests.push_back({"regex_attribute", test_regex_attribute});
+  tests.push_back({"contains_attribute", test_contains_attribute});
+  tests.push_back({"has_direct_text", test_has_direct_text});
   tests.push_back({"parenthesized_predicates", test_parenthesized_predicates});
 }

@@ -115,6 +115,8 @@ Token Lexer::lex_identifier_or_keyword() {
   if (upper == "PARQUET") return Token{TokenType::KeywordParquet, out, start};
   if (upper == "RAW") return Token{TokenType::KeywordRaw, out, start};
   if (upper == "FRAGMENTS") return Token{TokenType::KeywordFragments, out, start};
+  if (upper == "CONTAINS") return Token{TokenType::KeywordContains, out, start};
+  if (upper == "HAS_DIRECT_TEXT") return Token{TokenType::KeywordHasDirectText, out, start};
   if (upper == "IS") return Token{TokenType::KeywordIs, out, start};
   if (upper == "NOT") return Token{TokenType::KeywordNot, out, start};
   if (upper == "NULL") return Token{TokenType::KeywordNull, out, start};

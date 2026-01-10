@@ -15,11 +15,18 @@
 namespace {
 
 struct StreamCapture {
+  std::ostream* stream = nullptr;
   std::ostringstream buffer;
   std::streambuf* original = nullptr;
 
-  explicit StreamCapture(std::ostream& stream) : original(stream.rdbuf(buffer.rdbuf())) {}
-  ~StreamCapture() = default;
+  explicit StreamCapture(std::ostream& target)
+      : stream(&target), original(target.rdbuf(buffer.rdbuf())) {}
+  ~StreamCapture() {
+    if (stream && original) {
+      buffer.flush();
+      stream->rdbuf(original);
+    }
+  }
 
   std::string str() const { return buffer.str(); }
 };
@@ -27,6 +34,7 @@ struct StreamCapture {
 }  // namespace
 
 static void test_summarize_content_basic() {
+  StreamCapture capture(std::cout);
   xsql::cli::ReplConfig config;
   config.output_mode = "duckbox";
   config.color = false;
@@ -54,7 +62,6 @@ static void test_summarize_content_basic() {
       plugin_manager,
   };
 
-  StreamCapture capture(std::cout);
   auto handler = xsql::cli::make_summarize_content_command();
   bool handled = handler(".summarize_content", ctx);
   expect_true(handled, "summarize_content should handle command");
@@ -63,6 +70,7 @@ static void test_summarize_content_basic() {
 }
 
 static void test_summarize_content_khmer_requires_plugin() {
+  StreamCapture capture(std::cerr);
   xsql::cli::ReplConfig config;
   config.output_mode = "duckbox";
   config.color = false;
@@ -90,7 +98,6 @@ static void test_summarize_content_khmer_requires_plugin() {
       plugin_manager,
   };
 
-  StreamCapture capture(std::cerr);
   auto handler = xsql::cli::make_summarize_content_command();
   bool handled = handler(".summarize_content --lang khmer", ctx);
   expect_true(handled, "summarize_content should handle khmer command");
@@ -100,6 +107,7 @@ static void test_summarize_content_khmer_requires_plugin() {
 }
 
 static void test_summarize_content_max_tokens() {
+  StreamCapture capture(std::cout);
   xsql::cli::ReplConfig config;
   config.output_mode = "duckbox";
   config.color = false;
@@ -127,7 +135,6 @@ static void test_summarize_content_max_tokens() {
       plugin_manager,
   };
 
-  StreamCapture capture(std::cout);
   auto handler = xsql::cli::make_summarize_content_command();
   bool handled = handler(".summarize_content --max_tokens 1", ctx);
   expect_true(handled, "summarize_content should handle max_tokens");

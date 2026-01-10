@@ -574,11 +574,65 @@ class Parser {
       out = inner;
       return true;
     }
+    if (current_.type == TokenType::Identifier && peek().type == TokenType::KeywordHasDirectText) {
+      Token tag_token = current_;
+      Operand operand;
+      operand.axis = Operand::Axis::Self;
+      operand.field_kind = Operand::FieldKind::Tag;
+      operand.attribute = to_lower(tag_token.text);
+      operand.span = Span{tag_token.pos, tag_token.pos + tag_token.text.size()};
+      advance();
+      CompareExpr cmp;
+      cmp.lhs = operand;
+      cmp.op = CompareExpr::Op::HasDirectText;
+      advance();
+      if (current_.type != TokenType::String) {
+        return set_error("Expected string literal after HAS_DIRECT_TEXT");
+      }
+      ValueList values;
+      values.values.push_back(current_.text);
+      values.span = Span{current_.pos, current_.pos + current_.text.size()};
+      advance();
+      cmp.rhs = values;
+      out = cmp;
+      return true;
+    }
     Operand operand;
     if (!parse_operand(operand)) return false;
 
     CompareExpr cmp;
     cmp.lhs = operand;
+    if (current_.type == TokenType::KeywordContains) {
+      cmp.op = CompareExpr::Op::Contains;
+      advance();
+      if (current_.type != TokenType::String) {
+        return set_error("Expected string literal after CONTAINS");
+      }
+      ValueList values;
+      values.values.push_back(current_.text);
+      values.span = Span{current_.pos, current_.pos + current_.text.size()};
+      advance();
+      cmp.rhs = values;
+      out = cmp;
+      return true;
+    }
+    if (current_.type == TokenType::KeywordHasDirectText) {
+      cmp.op = CompareExpr::Op::HasDirectText;
+      advance();
+      if (cmp.lhs.field_kind != Operand::FieldKind::Tag || cmp.lhs.attribute.empty()) {
+        return set_error("HAS_DIRECT_TEXT expects a tag identifier");
+      }
+      if (current_.type != TokenType::String) {
+        return set_error("Expected string literal after HAS_DIRECT_TEXT");
+      }
+      ValueList values;
+      values.values.push_back(current_.text);
+      values.span = Span{current_.pos, current_.pos + current_.text.size()};
+      advance();
+      cmp.rhs = values;
+      out = cmp;
+      return true;
+    }
     if (current_.type == TokenType::Equal) {
       cmp.op = CompareExpr::Op::Eq;
       advance();
@@ -630,7 +684,7 @@ class Parser {
       out = cmp;
       return true;
     }
-    return set_error("Expected =, <>, ~, IN, or IS");
+    return set_error("Expected =, <>, ~, IN, CONTAINS, HAS_DIRECT_TEXT, or IS");
   }
 
   /// Parses an operand with axes, fields, and qualifiers.
@@ -1138,7 +1192,25 @@ class Parser {
   /// Advances to the next token in the input stream.
   /// MUST be called after consuming tokens to keep state in sync.
   /// Inputs are internal state; outputs are updated current_.
-  void advance() { current_ = lexer_.next(); }
+  void advance() {
+    if (has_peek_) {
+      current_ = peek_;
+      has_peek_ = false;
+      return;
+    }
+    current_ = lexer_.next();
+  }
+
+  /// Peeks one token ahead without consuming it.
+  /// MUST preserve current_ and return a cached lookahead.
+  /// Inputs are internal state; outputs are peek token.
+  Token peek() {
+    if (!has_peek_) {
+      peek_ = lexer_.next();
+      has_peek_ = true;
+    }
+    return peek_;
+  }
 
   /// Tests whether a string starts with a given prefix.
   /// MUST be exact and ASCII-safe for parser purposes.
@@ -1171,6 +1243,8 @@ class Parser {
 
   Lexer lexer_;
   Token current_{};
+  Token peek_{};
+  bool has_peek_ = false;
   std::optional<ParseError> error_;
 };
 

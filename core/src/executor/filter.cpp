@@ -5,6 +5,7 @@
 #include <regex>
 
 #include "../util/string_util.h"
+#include "../xsql/xsql_internal.h"
 
 namespace xsql::executor_internal {
 
@@ -27,6 +28,16 @@ std::vector<std::string> split_ws(const std::string& s) {
     if (start < i) out.push_back(s.substr(start, i - start));
   }
   return out;
+}
+
+/// Performs a case-insensitive substring match.
+/// MUST use ASCII-only case folding for deterministic behavior.
+/// Inputs are haystack/needle; outputs are boolean with no side effects.
+bool contains_ci(const std::string& haystack, const std::string& needle) {
+  if (needle.empty()) return true;
+  std::string lower_haystack = util::to_lower(haystack);
+  std::string lower_needle = util::to_lower(needle);
+  return lower_haystack.find(lower_needle) != std::string::npos;
 }
 
 /// Parses a string as a strict int64 value.
@@ -77,6 +88,9 @@ bool match_field(const HtmlNode& node,
                  const std::string& attr,
                  const std::vector<std::string>& values,
                  CompareExpr::Op op) {
+  if (op == CompareExpr::Op::Contains && field_kind != Operand::FieldKind::Attribute) {
+    return false;
+  }
   bool is_in = op == CompareExpr::Op::In;
   if (field_kind == Operand::FieldKind::NodeId) {
     if (op == CompareExpr::Op::Regex) return false;
@@ -108,6 +122,11 @@ bool match_field(const HtmlNode& node,
     return *node.parent_id == *target;
   }
   if (field_kind == Operand::FieldKind::Attribute) {
+    if (op == CompareExpr::Op::Contains) {
+      auto it = node.attributes.find(attr);
+      if (it == node.attributes.end()) return false;
+      return contains_ci(it->second, values.front());
+    }
     if (op == CompareExpr::Op::Regex) {
       auto it = node.attributes.find(attr);
       if (it == node.attributes.end()) return false;
@@ -133,6 +152,7 @@ bool match_field(const HtmlNode& node,
     return match_attribute(node, attr, values, is_in);
   }
   if (field_kind == Operand::FieldKind::Tag) {
+    if (op == CompareExpr::Op::Contains) return false;
     if (op == CompareExpr::Op::Regex) {
       try {
         std::regex re(values.front(), std::regex::ECMAScript);
@@ -410,6 +430,11 @@ bool eval_expr(const Expr& expr,
     const auto& cmp = std::get<CompareExpr>(expr);
     std::vector<std::string> values = cmp.rhs.values;
     bool is_in = cmp.op == CompareExpr::Op::In;
+    if (cmp.op == CompareExpr::Op::HasDirectText) {
+      if (node.tag != cmp.lhs.attribute) return false;
+      std::string direct = xsql_internal::extract_direct_text(node.inner_html);
+      return contains_ci(direct, values.front());
+    }
     if (cmp.op == CompareExpr::Op::IsNull || cmp.op == CompareExpr::Op::IsNotNull) {
       bool exists = false;
       if (cmp.lhs.field_kind == Operand::FieldKind::AttributesMap) {

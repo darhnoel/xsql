@@ -38,7 +38,7 @@ struct ValueList {
 };
 
 struct CompareExpr {
-  enum class Op { Eq, In, NotEq, IsNull, IsNotNull, Regex } op = Op::Eq;
+  enum class Op { Eq, In, NotEq, IsNull, IsNotNull, Regex, Contains, HasDirectText } op = Op::Eq;
   Operand lhs;
   ValueList rhs;
   Span span;

@@ -24,7 +24,7 @@ void test_fragments_from_raw() {
 void test_fragments_from_inner_html() {
   std::string html = "<div class='pagination'><ul><li>1</li><li>2</li></ul></div>";
   auto result = run_query(html,
-                          "SELECT li FROM FRAGMENTS(SELECT inner_html(div) FROM document "
+                          "SELECT li FROM FRAGMENTS(SELECT inner_html(div, 2) FROM document "
                           "WHERE attributes.class = 'pagination') AS frag");
   expect_eq(result.rows.size(), 2, "FRAGMENTS() parses inner_html fragments");
 }

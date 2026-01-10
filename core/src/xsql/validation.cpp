@@ -16,6 +16,7 @@ namespace {
 bool has_non_tag_self_predicate(const Expr& expr) {
   if (std::holds_alternative<CompareExpr>(expr)) {
     const auto& cmp = std::get<CompareExpr>(expr);
+    if (cmp.op == CompareExpr::Op::HasDirectText) return true;
     return !(cmp.lhs.axis == Operand::Axis::Self && cmp.lhs.field_kind == Operand::FieldKind::Tag);
   }
   const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
@@ -219,6 +220,24 @@ void validate_predicates(const Query& query) {
   std::function<void(const Expr&)> visit = [&](const Expr& expr) {
     if (std::holds_alternative<CompareExpr>(expr)) {
       const auto& cmp = std::get<CompareExpr>(expr);
+      if (cmp.op == CompareExpr::Op::Contains) {
+        if (cmp.lhs.field_kind != Operand::FieldKind::Attribute) {
+          throw std::runtime_error("CONTAINS supports only attributes");
+        }
+        if (cmp.rhs.values.size() != 1) {
+          throw std::runtime_error("CONTAINS expects a single string literal");
+        }
+      }
+      if (cmp.op == CompareExpr::Op::HasDirectText) {
+        if (cmp.lhs.axis != Operand::Axis::Self ||
+            cmp.lhs.field_kind != Operand::FieldKind::Tag ||
+            cmp.lhs.attribute.empty()) {
+          throw std::runtime_error("HAS_DIRECT_TEXT expects a tag identifier");
+        }
+        if (cmp.rhs.values.size() != 1) {
+          throw std::runtime_error("HAS_DIRECT_TEXT expects a single string literal");
+        }
+      }
       if (cmp.lhs.field_kind == Operand::FieldKind::AttributesMap) {
         if (cmp.op != CompareExpr::Op::IsNull && cmp.op != CompareExpr::Op::IsNotNull) {
           throw std::runtime_error("attributes supports only IS NULL or IS NOT NULL");
