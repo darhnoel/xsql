@@ -69,6 +69,12 @@ void test_contains_any_attribute() {
   expect_eq(result.rows.size(), 2, "contains any attribute");
 }
 
+void test_sibling_pos_filter() {
+  std::string html = "<ul><li>One</li><li>Two</li><li>Three</li></ul>";
+  auto result = run_query(html, "SELECT li FROM document WHERE sibling_pos = 2");
+  expect_eq(result.rows.size(), 1, "sibling_pos filter");
+}
+
 void test_has_direct_text() {
   std::string html = "<div>Something <section>Else</section></div><div><section>Something</section></div>";
   auto result = run_query(html, "SELECT div FROM document WHERE div HAS_DIRECT_TEXT 'something'");
@@ -97,6 +103,7 @@ void register_predicate_tests(std::vector<TestCase>& tests) {
   tests.push_back({"contains_attribute", test_contains_attribute});
   tests.push_back({"contains_all_attribute", test_contains_all_attribute});
   tests.push_back({"contains_any_attribute", test_contains_any_attribute});
+  tests.push_back({"sibling_pos_filter", test_sibling_pos_filter});
   tests.push_back({"has_direct_text", test_has_direct_text});
   tests.push_back({"parenthesized_predicates", test_parenthesized_predicates});
 }

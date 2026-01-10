@@ -164,8 +164,8 @@ void validate_projection(const Query& query) {
     if (field == "inner_html" && !item.inner_html_function) {
       throw std::runtime_error("INNER_HTML() must be used to project inner_html");
     }
-    if (item.trim && field == "attributes") {
-      throw std::runtime_error("TRIM() does not support attributes");
+    if (item.trim && (field == "attributes" || field == "sibling_pos")) {
+      throw std::runtime_error("TRIM() does not support attributes or sibling_pos");
     }
     if (field == "inner_html") {
       if (item.inner_html_depth.has_value()) {
@@ -178,7 +178,8 @@ void validate_projection(const Query& query) {
       }
     }
     if (field != "node_id" && field != "tag" && field != "text" &&
-        field != "inner_html" && field != "parent_id" && field != "source_uri" && field != "attributes") {
+        field != "inner_html" && field != "parent_id" && field != "source_uri" &&
+        field != "attributes" && field != "sibling_pos") {
       // Treat other fields as attribute projections (e.g., link.href).
     }
   }
@@ -291,8 +292,9 @@ void validate_order_by(const Query& query) {
       }
       continue;
     }
-    if (field != "node_id" && field != "tag" && field != "text" && field != "parent_id") {
-      throw std::runtime_error("ORDER BY supports node_id, tag, text, or parent_id");
+    if (field != "node_id" && field != "tag" && field != "text" &&
+        field != "parent_id" && field != "sibling_pos") {
+      throw std::runtime_error("ORDER BY supports node_id, tag, text, parent_id, or sibling_pos");
     }
   }
 }

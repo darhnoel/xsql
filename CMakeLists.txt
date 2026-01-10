@@ -211,6 +211,7 @@ if (XSQL_BUILD_TESTS)
     projection_parent_id
     projection_attributes
     projection_tag_field_list
+    projection_sibling_pos
     inner_html_function
     inner_html_depth
     trim_inner_html
@@ -249,6 +250,7 @@ if (XSQL_BUILD_TESTS)
     contains_attribute
     contains_all_attribute
     contains_any_attribute
+    sibling_pos_filter
     has_direct_text
     parenthesized_predicates
     duckbox_basic_table

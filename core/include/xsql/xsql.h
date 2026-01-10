@@ -18,6 +18,7 @@ struct QueryResultRow {
   std::string inner_html;
   std::unordered_map<std::string, std::string> attributes;
   std::optional<int64_t> parent_id;
+  int64_t sibling_pos = 0;
   std::string source_uri;
 };
 

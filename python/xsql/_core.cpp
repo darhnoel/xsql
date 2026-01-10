@@ -25,6 +25,7 @@ py::object field_value(const xsql::QueryResultRow& row, const std::string& field
     if (row.parent_id.has_value()) return py::int_(*row.parent_id);
     return py::none();
   }
+  if (field == "sibling_pos") return py::int_(row.sibling_pos);
   if (field == "source_uri") return py::str(row.source_uri);
   if (field == "attributes") return attributes_to_dict(row.attributes);
   auto it = row.attributes.find(field);

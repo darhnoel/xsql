@@ -1,4 +1,4 @@
-# XSQL Documentation (v1.0.2)
+# XSQL Documentation (v1.1.2)
 
 XSQL is a SQL-style query language for static HTML. It treats each HTML element
 as a row in a node table and lets you filter by tag and attributes. The project
@@ -134,6 +134,7 @@ Each HTML element becomes a row with fields:
 - `tag` (string)
 - `attributes` (map<string,string>)
 - `parent_id` (int64 or null)
+- `sibling_pos` (int64, 1-based position among siblings)
 - `source_uri` (string)
 
 ## Query Language
@@ -204,6 +205,7 @@ parent.tag = 'section'
 child.tag = 'a'
 ancestor.text ~ 'error|warning'
 div HAS_DIRECT_TEXT 'login'
+sibling_pos = 2
 ```
 
 Shorthand attribute filters:
@@ -228,7 +230,7 @@ SELECT div(node_id, tag, parent_id) FROM doc
 ```
 
 Supported base fields:
-- `node_id`, `tag`, `parent_id`, `source_uri`, `attributes`
+- `node_id`, `tag`, `parent_id`, `sibling_pos`, `source_uri`, `attributes`
 
 Attribute value projection:
 - `SELECT link.href FROM doc` returns the `href` value

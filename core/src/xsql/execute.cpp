@@ -32,6 +32,7 @@ std::optional<std::string> field_value_string(const QueryResultRow& row, const s
     if (!row.parent_id.has_value()) return std::nullopt;
     return std::to_string(*row.parent_id);
   }
+  if (field == "sibling_pos") return std::to_string(row.sibling_pos);
   if (field == "source_uri") return row.source_uri;
   if (field == "attributes") return std::nullopt;
   auto it = row.attributes.find(field);
@@ -203,6 +204,14 @@ QueryResult execute_query_ast(const Query& query, const HtmlDocument& doc, const
   if (!effective_inner_html_depth.has_value() && use_inner_html_function) {
     effective_inner_html_depth = 1;
   }
+  auto children = xsql_internal::build_children(doc);
+  std::vector<int64_t> sibling_positions(doc.nodes.size(), 1);
+  for (size_t parent = 0; parent < children.size(); ++parent) {
+    const auto& kids = children[parent];
+    for (size_t idx = 0; idx < kids.size(); ++idx) {
+      sibling_positions.at(static_cast<size_t>(kids[idx])) = static_cast<int64_t>(idx + 1);
+    }
+  }
   for (const auto& node : exec.nodes) {
     QueryResultRow row;
     row.node_id = node.id;
@@ -213,6 +222,7 @@ QueryResult execute_query_ast(const Query& query, const HtmlDocument& doc, const
                          : node.inner_html;
     row.attributes = node.attributes;
     row.source_uri = source_uri;
+    row.sibling_pos = sibling_positions.at(static_cast<size_t>(node.id));
     if (trim_item != nullptr && trim_item->field.has_value()) {
       const std::string& field = *trim_item->field;
       if (field == "text") {

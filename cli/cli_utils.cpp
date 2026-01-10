@@ -82,6 +82,8 @@ void print_field(std::ostream& os, const std::string& field, const xsql::QueryRe
     } else {
       os << "null";
     }
+  } else if (field == "sibling_pos") {
+    os << row.sibling_pos;
   } else if (field == "source_uri") {
     os << "\"" << json_escape(row.source_uri) << "\"";
   } else if (field == "attributes") {

@@ -26,7 +26,15 @@ struct Source {
 
 struct Operand {
   enum class Axis { Self, Parent, Child, Ancestor, Descendant } axis = Axis::Self;
-  enum class FieldKind { Attribute, AttributesMap, Tag, Text, NodeId, ParentId } field_kind = FieldKind::Attribute;
+  enum class FieldKind {
+    Attribute,
+    AttributesMap,
+    Tag,
+    Text,
+    NodeId,
+    ParentId,
+    SiblingPos
+  } field_kind = FieldKind::Attribute;
   std::string attribute;
   std::optional<std::string> qualifier;
   Span span;

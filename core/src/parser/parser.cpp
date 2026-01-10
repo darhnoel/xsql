@@ -744,6 +744,13 @@ class Parser {
       operand.span = Span{current_.pos, current_.pos + current_.text.size()};
       return true;
     }
+    if (to_upper(current_.text) == "SIBLING_POS") {
+      advance();
+      operand.axis = Operand::Axis::Self;
+      operand.field_kind = Operand::FieldKind::SiblingPos;
+      operand.span = Span{current_.pos, current_.pos + current_.text.size()};
+      return true;
+    }
     if (to_upper(current_.text) == "PARENT") {
       advance();
       if (!consume(TokenType::Dot, "Expected . after parent")) return false;
@@ -760,7 +767,8 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
+          next == "SIBLING_POS") {
         operand.axis = Operand::Axis::Parent;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
@@ -768,6 +776,8 @@ class Parser {
           operand.field_kind = Operand::FieldKind::Text;
         } else if (next == "NODE_ID") {
           operand.field_kind = Operand::FieldKind::NodeId;
+        } else if (next == "SIBLING_POS") {
+          operand.field_kind = Operand::FieldKind::SiblingPos;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -793,7 +803,8 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
+          next == "SIBLING_POS") {
         operand.axis = Operand::Axis::Child;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
@@ -801,6 +812,8 @@ class Parser {
           operand.field_kind = Operand::FieldKind::Text;
         } else if (next == "NODE_ID") {
           operand.field_kind = Operand::FieldKind::NodeId;
+        } else if (next == "SIBLING_POS") {
+          operand.field_kind = Operand::FieldKind::SiblingPos;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -826,7 +839,8 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
+          next == "SIBLING_POS") {
         operand.axis = Operand::Axis::Ancestor;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
@@ -834,6 +848,8 @@ class Parser {
           operand.field_kind = Operand::FieldKind::Text;
         } else if (next == "NODE_ID") {
           operand.field_kind = Operand::FieldKind::NodeId;
+        } else if (next == "SIBLING_POS") {
+          operand.field_kind = Operand::FieldKind::SiblingPos;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -859,7 +875,8 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
+          next == "SIBLING_POS") {
         operand.axis = Operand::Axis::Descendant;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
@@ -867,6 +884,8 @@ class Parser {
           operand.field_kind = Operand::FieldKind::Text;
         } else if (next == "NODE_ID") {
           operand.field_kind = Operand::FieldKind::NodeId;
+        } else if (next == "SIBLING_POS") {
+          operand.field_kind = Operand::FieldKind::SiblingPos;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -900,6 +919,12 @@ class Parser {
       if (to_upper(qualifier) == "PARENT_ID") {
         operand.axis = Operand::Axis::Self;
         operand.field_kind = Operand::FieldKind::ParentId;
+        operand.span = Span{current_.pos, current_.pos};
+        return true;
+      }
+      if (to_upper(qualifier) == "SIBLING_POS") {
+        operand.axis = Operand::Axis::Self;
+        operand.field_kind = Operand::FieldKind::SiblingPos;
         operand.span = Span{current_.pos, current_.pos};
         return true;
       }
@@ -940,6 +965,14 @@ class Parser {
       advance();
       return true;
     }
+    if (to_upper(current_.text) == "SIBLING_POS") {
+      operand.axis = Operand::Axis::Self;
+      operand.field_kind = Operand::FieldKind::SiblingPos;
+      operand.qualifier = qualifier;
+      operand.span = Span{current_.pos, current_.pos + current_.text.size()};
+      advance();
+      return true;
+    }
     if (to_upper(current_.text) == "NODE_ID") {
       operand.axis = Operand::Axis::Self;
       operand.field_kind = Operand::FieldKind::NodeId;
@@ -965,7 +998,8 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
+          next == "SIBLING_POS") {
         operand.axis = Operand::Axis::Parent;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
@@ -973,6 +1007,8 @@ class Parser {
           operand.field_kind = Operand::FieldKind::Text;
         } else if (next == "NODE_ID") {
           operand.field_kind = Operand::FieldKind::NodeId;
+        } else if (next == "SIBLING_POS") {
+          operand.field_kind = Operand::FieldKind::SiblingPos;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -1000,7 +1036,8 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
+          next == "SIBLING_POS") {
         operand.axis = Operand::Axis::Child;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
@@ -1008,6 +1045,8 @@ class Parser {
           operand.field_kind = Operand::FieldKind::Text;
         } else if (next == "NODE_ID") {
           operand.field_kind = Operand::FieldKind::NodeId;
+        } else if (next == "SIBLING_POS") {
+          operand.field_kind = Operand::FieldKind::SiblingPos;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -1035,7 +1074,8 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
+          next == "SIBLING_POS") {
         operand.axis = Operand::Axis::Ancestor;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
@@ -1043,6 +1083,8 @@ class Parser {
           operand.field_kind = Operand::FieldKind::Text;
         } else if (next == "NODE_ID") {
           operand.field_kind = Operand::FieldKind::NodeId;
+        } else if (next == "SIBLING_POS") {
+          operand.field_kind = Operand::FieldKind::SiblingPos;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }
@@ -1070,7 +1112,8 @@ class Parser {
         advance();
         return true;
       }
-      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID") {
+      if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
+          next == "SIBLING_POS") {
         operand.axis = Operand::Axis::Descendant;
         if (next == "TAG") {
           operand.field_kind = Operand::FieldKind::Tag;
@@ -1078,6 +1121,8 @@ class Parser {
           operand.field_kind = Operand::FieldKind::Text;
         } else if (next == "NODE_ID") {
           operand.field_kind = Operand::FieldKind::NodeId;
+        } else if (next == "SIBLING_POS") {
+          operand.field_kind = Operand::FieldKind::SiblingPos;
         } else {
           operand.field_kind = Operand::FieldKind::ParentId;
         }

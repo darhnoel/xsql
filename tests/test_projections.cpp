@@ -50,6 +50,16 @@ void test_attribute_projection_value() {
   }
 }
 
+void test_projection_sibling_pos() {
+  std::string html = "<ul><li>First</li><li>Second</li></ul>";
+  auto result = run_query(html, "SELECT li.sibling_pos FROM document");
+  expect_eq(result.rows.size(), 2, "sibling_pos projection row count");
+  if (result.rows.size() >= 2) {
+    expect_true(result.rows[0].sibling_pos == 1, "sibling_pos first");
+    expect_true(result.rows[1].sibling_pos == 2, "sibling_pos second");
+  }
+}
+
 void test_select_exclude_single() {
   std::string html = "<div></div>";
   auto result = run_query(html, "SELECT * EXCLUDE source_uri FROM document");
@@ -69,6 +79,7 @@ void register_projection_tests(std::vector<TestCase>& tests) {
   tests.push_back({"projection_attributes", test_projection_attributes});
   tests.push_back({"projection_tag_field_list", test_projection_tag_field_list});
   tests.push_back({"attribute_projection_value", test_attribute_projection_value});
+  tests.push_back({"projection_sibling_pos", test_projection_sibling_pos});
   tests.push_back({"select_exclude_single", test_select_exclude_single});
   tests.push_back({"select_exclude_list", test_select_exclude_list});
 }

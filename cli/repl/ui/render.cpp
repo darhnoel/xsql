@@ -13,8 +13,8 @@ namespace {
 bool is_sql_keyword(const std::string& word) {
   static const std::unordered_set<std::string> keywords = {
       "select", "from", "where", "and", "or", "in", "limit", "order", "by",
-      "asc", "desc", "to", "list", "table", "csv", "parquet", "count", "summarize", "exclude",
-      "raw", "fragments", "contains", "all", "any", "has_direct_text", "is", "null"
+      "asc", "desc", "to", "list", "csv", "parquet", "count", "summarize", "exclude",
+      "raw", "fragments", "contains", "all", "any", "has_direct_text", "sibling_pos", "is", "null"
   };
   std::string lower;
   lower.reserve(word.size());
@@ -104,6 +104,7 @@ void render_buffer(const std::string& buffer,
   bool command_line = false;
   bool at_line_start = true;
   bool line_has_prefix = false;
+  std::string last_word;
   size_t i = 0;
   while (i < buffer.size()) {
     char c = buffer[i];
@@ -112,6 +113,7 @@ void render_buffer(const std::string& buffer,
       command_line = false;
       at_line_start = true;
       line_has_prefix = false;
+      last_word.clear();
       ++i;
       continue;
     }
@@ -149,11 +151,19 @@ void render_buffer(const std::string& buffer,
         break;
       }
       std::string word = buffer.substr(start, i - start);
-      if (keyword_color && !command_line && is_sql_keyword(word)) {
+      std::string lower_word;
+      lower_word.reserve(word.size());
+      for (char wc : word) {
+        lower_word.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(wc))));
+      }
+      bool highlight_table = (lower_word == "table" && last_word == "to");
+      if (keyword_color && !command_line &&
+          (highlight_table || is_sql_keyword(word))) {
         std::cout << kColor.cyan << word << kColor.reset;
       } else {
         std::cout << word;
       }
+      last_word = lower_word;
       continue;
     }
     std::cout << c;
