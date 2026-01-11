@@ -1,4 +1,4 @@
-# XSQL Documentation (v1.2.0)
+# XSQL Documentation (v1.2.1)
 
 XSQL is a SQL-style query language for static HTML. It treats each HTML element
 as a row in a node table and lets you filter by tag, attributes, and position.

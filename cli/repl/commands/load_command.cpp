@@ -1,5 +1,6 @@
 #include "load_command.h"
 
+#include <cctype>
 #include <filesystem>
 #include <iostream>
 #include <sstream>
@@ -18,10 +19,29 @@ CommandHandler make_load_command() {
     std::string cmd;
     iss >> cmd;
     std::string path;
-    iss >> path;
-    if (path.empty()) {
+    std::string rest;
+    std::getline(iss, rest);
+    rest = trim_semicolon(rest);
+    size_t start = 0;
+    while (start < rest.size() && std::isspace(static_cast<unsigned char>(rest[start]))) {
+      ++start;
+    }
+    rest = rest.substr(start);
+    if (rest.empty()) {
       std::cerr << "Usage: .load <path|url> or :load <path|url>" << std::endl;
       return true;
+    }
+    if (rest.front() == '\'' || rest.front() == '"') {
+      char quote = rest.front();
+      size_t end = rest.find(quote, 1);
+      if (end == std::string::npos) {
+        std::cerr << "Error: unterminated quoted path in .load" << std::endl;
+        return true;
+      }
+      path = rest.substr(1, end - 1);
+    } else {
+      std::istringstream arg_stream(rest);
+      arg_stream >> path;
     }
     path = trim_semicolon(path);
     if (path == "doc" || path == "document") {

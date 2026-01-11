@@ -324,6 +324,7 @@ std::string load_html_input(const std::string& input, int timeout_ms) {
     std::string buffer;
     curl_easy_setopt(curl, CURLOPT_URL, input.c_str());
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_string);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buffer);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeout_ms);
