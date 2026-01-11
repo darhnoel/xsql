@@ -17,6 +17,11 @@ add_library(xsql_core
   core/src/ast.cpp
   core/src/query_parser.cpp
   core/src/parser/parser.cpp
+  core/src/parser/parser_expr.cpp
+  core/src/parser/parser_query.cpp
+  core/src/parser/parser_select.cpp
+  core/src/parser/parser_source.cpp
+  core/src/parser/parser_util.cpp
   core/src/parser/lexer.cpp
   core/src/html_parser.cpp
   core/src/html/parser_naive.cpp
