@@ -370,6 +370,21 @@ SELECT summarize(*) FROM doc;
 SELECT summarize(*) FROM doc ORDER BY count DESC LIMIT 5;
 ```
 
+## TODO
+
+| Item | Priority |
+| --- | --- |
+| DOM mutation: `UPDATE` / `INSERT` / `DELETE` | High |
+| DOM mutation: attribute ops (`SET`, `REMOVE`) | High |
+| DOM mutation: content ops (`SET TEXT`, `SET INNER_HTML`) | High |
+| DB bridge: `TO DB()` / `FROM DB()` (XSQL stays front-end) | High |
+| Multi-source `JOIN` (doc ↔ doc, doc ↔ table) | Medium |
+| `WITH` / subqueries for reuse | Medium |
+| `GROUP BY` + `HAVING` + `DISTINCT` | Medium |
+| Performance profiling + hot-path optimizations | Medium |
+| Session cache for parsed DOM (if a clear use case appears) | Low |
+| BM25 ranking (simple explainer on demand) | Exploration |
+
 ## Known Limitations
 
 - No XPath or positional predicates.
