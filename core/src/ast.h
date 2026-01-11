@@ -102,6 +102,7 @@ struct Query {
   std::optional<size_t> limit;
   bool to_list = false;
   bool to_table = false;
+  bool table_has_header = true;
   std::optional<ExportSink> export_sink;
   Span span;
 };

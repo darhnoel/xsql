@@ -113,6 +113,7 @@ def execute(
         tables=tables,
         to_list=raw.get("to_list", False),
         to_table=raw.get("to_table", False),
+        table_has_header=raw.get("table_has_header", True),
         export_sink=export_sink,
     )
 

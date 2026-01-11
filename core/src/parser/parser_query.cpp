@@ -70,6 +70,73 @@ bool Parser::parse_query_body(Query& q) {
     } else if (current_.type == TokenType::KeywordTable) {
       advance();
       if (!consume(TokenType::LParen, "Expected ( after TABLE")) return false;
+      bool saw_header = false;
+      bool saw_export = false;
+      if (current_.type != TokenType::RParen) {
+        while (true) {
+          if (current_.type != TokenType::Identifier) {
+            return set_error("Expected HEADER, NOHEADER, or EXPORT inside TABLE()");
+          }
+          size_t option_start = current_.pos;
+          std::string option = to_upper(current_.text);
+          advance();
+          if (option == "HEADER") {
+            if (current_.type == TokenType::Equal) {
+              advance();
+            }
+            if (current_.type == TokenType::Comma || current_.type == TokenType::RParen) {
+              q.table_has_header = true;
+            } else {
+              if (current_.type != TokenType::Identifier) {
+                return set_error("Expected ON or OFF after HEADER");
+              }
+              std::string value = to_upper(current_.text);
+              if (value == "ON") {
+                q.table_has_header = true;
+              } else if (value == "OFF") {
+                q.table_has_header = false;
+              } else {
+                return set_error("Expected ON or OFF after HEADER");
+              }
+              advance();
+            }
+            if (saw_header) {
+              return set_error("Duplicate HEADER option inside TABLE()");
+            }
+            saw_header = true;
+          } else if (option == "NOHEADER" || option == "NO_HEADER") {
+            if (saw_header) {
+              return set_error("Duplicate HEADER option inside TABLE()");
+            }
+            q.table_has_header = false;
+            saw_header = true;
+          } else if (option == "EXPORT") {
+            if (current_.type == TokenType::Equal) {
+              advance();
+            }
+            if (current_.type != TokenType::String) {
+              return set_error("Expected string literal after EXPORT");
+            }
+            if (saw_export) {
+              return set_error("Duplicate EXPORT option inside TABLE()");
+            }
+            Query::ExportSink sink;
+            sink.kind = Query::ExportSink::Kind::Csv;
+            sink.path = current_.text;
+            sink.span = Span{option_start, current_.pos + current_.text.size()};
+            q.export_sink = sink;
+            saw_export = true;
+            advance();
+          } else {
+            return set_error("Expected HEADER, NOHEADER, or EXPORT inside TABLE()");
+          }
+          if (current_.type == TokenType::Comma) {
+            advance();
+            continue;
+          }
+          break;
+        }
+      }
       if (!consume(TokenType::RParen, "Expected ) after TABLE(")) return false;
       q.to_table = true;
     } else if (current_.type == TokenType::KeywordCsv || current_.type == TokenType::KeywordParquet) {

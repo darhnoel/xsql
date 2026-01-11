@@ -89,6 +89,7 @@ std::string build_summary_json(const std::vector<std::pair<std::string, size_t>>
 /// MUST honor max_rows and MUST avoid color when not in a TTY.
 /// Inputs are table data and render options; outputs are formatted text.
 std::string render_table_duckbox(const xsql::QueryResult::TableResult& table,
+                                 bool has_header,
                                  bool highlight,
                                  bool is_tty,
                                  size_t max_rows);

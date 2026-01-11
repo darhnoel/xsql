@@ -46,6 +46,7 @@ struct QueryResult {
   };
   std::vector<TableResult> tables;
   bool to_table = false;
+  bool table_has_header = true;
   ExportSink export_sink;
 };
 

@@ -586,6 +586,7 @@ std::string build_summary_json(const std::vector<std::pair<std::string, size_t>>
 }
 
 std::string render_table_duckbox(const xsql::QueryResult::TableResult& table,
+                                 bool has_header,
                                  bool highlight,
                                  bool is_tty,
                                  size_t max_rows) {
@@ -602,7 +603,7 @@ std::string render_table_duckbox(const xsql::QueryResult::TableResult& table,
   size_t data_start = 0;
   std::vector<std::string> column_keys;
   column_keys.reserve(max_cols);
-  if (!table.rows.empty()) {
+  if (!table.rows.empty() && has_header) {
     std::vector<std::string> headers = table.rows.front();
     data_start = 1;
     if (headers.size() < max_cols) {

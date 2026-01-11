@@ -101,6 +101,20 @@ void test_to_table_flag() {
   expect_true(result.to_table, "to table flag set");
 }
 
+void test_to_table_header_on() {
+  std::string html = "<table><tr><td>H1</td></tr><tr><td>A</td></tr></table>";
+  auto result = run_query(html, "SELECT table FROM document TO TABLE(HEADER=ON)");
+  expect_true(result.to_table, "to table header on flag set");
+  expect_true(result.table_has_header, "to table header on");
+}
+
+void test_to_table_header_off() {
+  std::string html = "<table><tr><td>H1</td></tr><tr><td>A</td></tr></table>";
+  auto result = run_query(html, "SELECT table FROM document TO TABLE(HEADER=OFF)");
+  expect_true(result.to_table, "to table header off flag set");
+  expect_true(!result.table_has_header, "to table header off");
+}
+
 void test_to_list_flag() {
   std::string html = "<a href='x'></a>";
   auto result = run_query(html, "SELECT a.href FROM document TO LIST()");
@@ -120,5 +134,7 @@ void register_function_tests(std::vector<TestCase>& tests) {
   tests.push_back({"summarize_limit", test_summarize_limit});
   tests.push_back({"summarize_order_by_count", test_summarize_order_by_count});
   tests.push_back({"to_table_flag", test_to_table_flag});
+  tests.push_back({"to_table_header_on", test_to_table_header_on});
+  tests.push_back({"to_table_header_off", test_to_table_header_off});
   tests.push_back({"to_list_flag", test_to_list_flag});
 }

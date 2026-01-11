@@ -96,6 +96,8 @@ bool validate_rectangular(const xsql::QueryResult& result, std::string& error) {
 
 }  // namespace
 
+static std::vector<std::string> table_columns(const xsql::QueryResult::TableResult& table);
+
 bool write_csv(const xsql::QueryResult& result, const std::string& path, std::string& error) {
   if (!validate_rectangular(result, error)) return false;
   std::ofstream out(path, std::ios::binary);
@@ -122,11 +124,22 @@ bool write_csv(const xsql::QueryResult& result, const std::string& path, std::st
 
 bool write_table_csv(const xsql::QueryResult::TableResult& table,
                      const std::string& path,
-                     std::string& error) {
+                     std::string& error,
+                     bool table_has_header) {
   std::ofstream out(path, std::ios::binary);
   if (!out) {
     error = "Failed to open file for writing: " + path;
     return false;
+  }
+  if (!table_has_header) {
+    std::vector<std::string> cols = table_columns(table);
+    if (!cols.empty()) {
+      for (size_t i = 0; i < cols.size(); ++i) {
+        if (i > 0) out << ",";
+        out << csv_escape(cols[i]);
+      }
+      out << "\n";
+    }
   }
   for (const auto& row : table.rows) {
     for (size_t i = 0; i < row.size(); ++i) {
@@ -138,8 +151,7 @@ bool write_table_csv(const xsql::QueryResult::TableResult& table,
   return true;
 }
 
-#ifdef XSQL_USE_ARROW
-std::vector<std::string> table_columns(const xsql::QueryResult::TableResult& table) {
+static std::vector<std::string> table_columns(const xsql::QueryResult::TableResult& table) {
   size_t max_cols = 0;
   for (const auto& row : table.rows) {
     if (row.size() > max_cols) {
@@ -153,7 +165,6 @@ std::vector<std::string> table_columns(const xsql::QueryResult::TableResult& tab
   }
   return cols;
 }
-#endif
 
 bool write_parquet(const xsql::QueryResult& result, const std::string& path, std::string& error) {
   if (!validate_rectangular(result, error)) return false;
@@ -298,7 +309,8 @@ bool export_result(const xsql::QueryResult& result, std::string& error) {
       return false;
     }
     if (result.export_sink.kind == xsql::QueryResult::ExportSink::Kind::Csv) {
-      return write_table_csv(result.tables[0], result.export_sink.path, error);
+      return write_table_csv(result.tables[0], result.export_sink.path, error,
+                             result.table_has_header);
     }
     if (result.export_sink.kind == xsql::QueryResult::ExportSink::Kind::Parquet) {
       return write_table_parquet(result.tables[0], result.export_sink.path, error);

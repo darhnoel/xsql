@@ -11,7 +11,8 @@ AutoCompleter::AutoCompleter() {
       "csv", "parquet", "count", "summarize", "order", "by", "asc", "desc", "document", "doc",
       "raw", "fragments", "contains", "all", "any", "has_direct_text",
       "attributes", "tag", "text", "parent", "child", "ancestor", "descendant",
-      "parent_id", "sibling_pos", "inner_html", "trim", "is", "null"
+      "parent_id", "sibling_pos", "inner_html", "trim", "is", "null", "header", "noheader",
+      "no_header", "on", "off", "export"
   };
   commands_ = {
       ".help", ".load", ".mode", ".display_mode", ".max_rows", ".summarize", ".summarize_content",

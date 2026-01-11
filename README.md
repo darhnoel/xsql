@@ -1,8 +1,8 @@
-# XSQL Documentation (v1.1.2)
+# XSQL Documentation (v1.1.3)
 
 XSQL is a SQL-style query language for static HTML. It treats each HTML element
 as a row in a node table and lets you filter by tag, attributes, and position.
-The project is now at v1.1.2 as an offline-first C++20 tool.
+The project is now at v1.1.3 as an offline-first C++20 tool.
 
 ## Quick Start
 
@@ -90,6 +90,7 @@ pytest -v python/tests
 
 Shorthand:
 ```
+./install_python.sh
 ./test_python.sh
 ```
 
@@ -142,7 +143,7 @@ Each HTML element becomes a row with fields:
 ### Basic Form
 ```
 SELECT <tag_list> FROM <source> [WHERE <expr>] [LIMIT <n>]
-  [TO LIST() | TO TABLE() | TO CSV('file.csv') | TO PARQUET('file.parquet')]
+  [TO LIST() | TO TABLE([HEADER=ON|OFF][, EXPORT='file.csv']) | TO CSV('file.csv') | TO PARQUET('file.parquet')]
 ```
 
 ### Source
@@ -252,9 +253,13 @@ SELECT link.href FROM doc WHERE attributes.rel = "preload" TO LIST()
 ```
 
 ### TO TABLE()
-Extract an HTML `<table>` into rows (array of arrays):
+Extract an HTML `<table>` into rows (array of arrays). By default the first row
+is treated as column headers for duckbox rendering; set `HEADER=OFF` to render
+all rows as data (CSV exports will include generated `col1..colN` headers):
 ```
 SELECT table FROM doc TO TABLE()
+SELECT table FROM doc TO TABLE(HEADER=OFF)
+SELECT table FROM doc WHERE attributes.id = 'stats' TO TABLE(EXPORT='stats.csv')
 ```
 
 If multiple tables match, the output is a list of objects:
@@ -263,6 +268,7 @@ If multiple tables match, the output is a list of objects:
 ```
 
 Note: `TO LIST()` always returns JSON output. `TO TABLE()` uses duckbox by default and JSON in `--mode json|plain`.
+`EXPORT='file.csv'` requires a single table result, so filter by `node_id` or attributes when multiple tables match.
 
 ### TO CSV()
 Write any rectangular result to a CSV file:
@@ -277,7 +283,8 @@ SELECT * FROM doc TO PARQUET('nodes.parquet')
 ```
 
 Note: `TO CSV()` and `TO PARQUET()` write files and do not print the result set.
-If you `SELECT table ... TO CSV(...)`, XSQL exports the HTML table rows directly.
+If you `SELECT table ... TO CSV(...)`, XSQL exports the HTML table rows directly (legacy).
+Prefer `TO TABLE(EXPORT='file.csv')` for explicit table exports.
 
 ### LIMIT
 ```
@@ -340,7 +347,7 @@ SELECT summarize(*) FROM doc;
 SELECT summarize(*) FROM doc ORDER BY count DESC LIMIT 5;
 ```
 
-## Known Limitations (v0.1)
+## Known Limitations
 
 - No XPath or positional predicates.
 - `ORDER BY` is limited to `node_id`, `tag`, `text`, or `parent_id`.

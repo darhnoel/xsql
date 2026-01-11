@@ -120,7 +120,9 @@ int run_repl(ReplConfig& config) {
               if (result.tables.size() > 1) {
                 std::cout << "Table node_id=" << result.tables[i].node_id << std::endl;
               }
-              std::cout << render_table_duckbox(result.tables[i], config.highlight, config.color, max_rows) << std::endl;
+              std::cout << render_table_duckbox(result.tables[i], result.table_has_header,
+                                                config.highlight, config.color, max_rows)
+                        << std::endl;
             }
           }
         } else if (!result.to_list) {

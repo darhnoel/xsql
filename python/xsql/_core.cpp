@@ -66,6 +66,7 @@ PYBIND11_MODULE(_core, m) {
           out["tables"] = tables;
           out["to_list"] = result.to_list;
           out["to_table"] = result.to_table;
+          out["table_has_header"] = result.table_has_header;
           py::dict export_sink;
           switch (result.export_sink.kind) {
             case xsql::QueryResult::ExportSink::Kind::Csv:

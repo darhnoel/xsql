@@ -108,7 +108,9 @@ int main(int argc, char** argv) {
             if (result.tables.size() > 1) {
               std::cout << "Table node_id=" << result.tables[i].node_id << std::endl;
             }
-            std::cout << render_table_duckbox(result.tables[i], highlight, color, 40) << std::endl;
+            std::cout << render_table_duckbox(result.tables[i], result.table_has_header, highlight,
+                                              color, 40)
+                      << std::endl;
           }
         }
       } else if (!result.to_list) {

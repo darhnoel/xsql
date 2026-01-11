@@ -4,10 +4,9 @@ set -euo pipefail
 VENV_DIR="${VENV_DIR:-xsql_venv}"
 
 if [[ ! -d "${VENV_DIR}" ]]; then
-  echo "Virtual environment not found: ${VENV_DIR}" >&2
-  echo "Run ./install_python.sh first." >&2
-  exit 1
+  python3 -m venv "${VENV_DIR}"
 fi
 
 source "${VENV_DIR}/bin/activate"
-pytest -v python/tests
+python -m pip install -U pip
+python -m pip install -e .[test]

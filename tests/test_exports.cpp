@@ -51,6 +51,66 @@ void test_csv_export_integration() {
   expect_true(content == expected, "csv export integration content");
 }
 
+void test_table_csv_export_integration() {
+  std::string html =
+      "<table>"
+      "<tr><th>H1</th><th>H2</th></tr>"
+      "<tr><td>A</td><td>B</td></tr>"
+      "</table>";
+  auto path = std::filesystem::temp_directory_path() / "xsql_table_csv_test.csv";
+  std::string query = "SELECT table FROM document TO TABLE(EXPORT=\"" + path.string() + "\")";
+  auto result = run_query(html, query);
+  std::string error;
+  bool ok = xsql::cli::export_result(result, error);
+  expect_true(ok, "table csv export integration ok");
+  expect_true(error.empty(), "table csv export integration no error");
+  std::string content = read_file_to_string(path);
+  std::filesystem::remove(path);
+  std::string expected =
+      "H1,H2\n"
+      "A,B\n";
+  expect_true(content == expected, "table csv export integration content");
+}
+
+void test_table_csv_export_header_off() {
+  std::string html =
+      "<table>"
+      "<tr><td>A</td><td>B</td></tr>"
+      "</table>";
+  auto path = std::filesystem::temp_directory_path() / "xsql_table_csv_header_off.csv";
+  std::string query =
+      "SELECT table FROM document TO TABLE(EXPORT=\"" + path.string() + "\", HEADER=OFF)";
+  auto result = run_query(html, query);
+  std::string error;
+  bool ok = xsql::cli::export_result(result, error);
+  expect_true(ok, "table csv header off export ok");
+  expect_true(error.empty(), "table csv header off export no error");
+  std::string content = read_file_to_string(path);
+  std::filesystem::remove(path);
+  std::string expected =
+      "col1,col2\n"
+      "A,B\n";
+  expect_true(content == expected, "table csv header off export content");
+}
+
+void test_table_export_requires_single_table() {
+  bool threw = false;
+  try {
+    std::string html =
+        "<table><tr><td>A</td></tr></table>"
+        "<table><tr><td>B</td></tr></table>";
+    auto path = std::filesystem::temp_directory_path() / "xsql_table_csv_multi.csv";
+    std::string query = "SELECT table FROM document TO TABLE(EXPORT=\"" + path.string() + "\")";
+    run_query(html, query);
+  } catch (const std::exception& ex) {
+    threw = true;
+    std::string message = ex.what();
+    expect_true(message.find("single table result") != std::string::npos,
+                "table export requires single table message");
+  }
+  expect_true(threw, "table export requires single table");
+}
+
 #ifdef XSQL_USE_ARROW
 void test_parquet_export_smoke() {
   std::string html = "<div id='x'>Hi</div>";
@@ -75,6 +135,9 @@ void test_parquet_export_smoke() {
 void register_export_tests(std::vector<TestCase>& tests) {
   tests.push_back({"csv_escaping", test_csv_escaping});
   tests.push_back({"csv_export_integration", test_csv_export_integration});
+  tests.push_back({"table_csv_export_integration", test_table_csv_export_integration});
+  tests.push_back({"table_csv_export_header_off", test_table_csv_export_header_off});
+  tests.push_back({"table_export_requires_single_table", test_table_export_requires_single_table});
 #ifdef XSQL_USE_ARROW
   tests.push_back({"parquet_export_smoke", test_parquet_export_smoke});
 #endif

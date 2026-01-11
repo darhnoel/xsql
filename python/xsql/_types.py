@@ -37,4 +37,5 @@ class QueryResult:
     tables: List[TableResult]
     to_list: bool
     to_table: bool
+    table_has_header: bool
     export_sink: ExportSink

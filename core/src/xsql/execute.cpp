@@ -108,6 +108,7 @@ QueryResult execute_query_ast(const Query& query, const HtmlDocument& doc, const
   out.columns = xsql_internal::build_columns(query);
   out.to_list = query.to_list;
   out.to_table = query.to_table;
+  out.table_has_header = query.table_has_header;
   if (query.export_sink.has_value()) {
     const auto& sink = *query.export_sink;
     if (sink.kind == Query::ExportSink::Kind::Csv) {
@@ -116,6 +117,12 @@ QueryResult execute_query_ast(const Query& query, const HtmlDocument& doc, const
       out.export_sink.kind = QueryResult::ExportSink::Kind::Parquet;
     }
     out.export_sink.path = sink.path;
+  }
+  if (query.export_sink.has_value() &&
+      (query.to_table || xsql_internal::is_table_select(query)) &&
+      exec.nodes.size() != 1) {
+    throw std::runtime_error(
+        "Export requires a single table result; add a filter to select one table");
   }
   if (!query.select_items.empty() &&
       query.select_items[0].aggregate == Query::SelectItem::Aggregate::Summarize) {
