@@ -374,6 +374,7 @@ SELECT summarize(*) FROM doc ORDER BY count DESC LIMIT 5;
 
 | Item | Priority |
 | --- | --- |
+| Plugin for dynamic websites (headless browser fetch/render) | Highest |
 | DOM mutation: `UPDATE` / `INSERT` / `DELETE` | High |
 | DOM mutation: attribute ops (`SET`, `REMOVE`) | High |
 | DOM mutation: content ops (`SET TEXT`, `SET INNER_HTML`) | High |
