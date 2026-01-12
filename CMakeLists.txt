@@ -119,11 +119,13 @@ if (XSQL_BUILD_CLI)
     cli/repl/ui/render.cpp
     cli/repl/input/text_util.cpp
     cli/repl/core/repl.cpp
+    cli/repl/config.cpp
     cli/repl/commands/registry.cpp
     cli/repl/commands/help_command.cpp
     cli/repl/commands/display_mode_command.cpp
     cli/repl/commands/mode_command.cpp
     cli/repl/commands/max_rows_command.cpp
+    cli/repl/commands/reload_config_command.cpp
     cli/repl/commands/summarize_command.cpp
     cli/repl/commands/load_command.cpp
     cli/repl/commands/plugin_command.cpp
@@ -182,11 +184,13 @@ if (XSQL_BUILD_TESTS)
     cli/repl/ui/render.cpp
     cli/repl/input/text_util.cpp
     cli/repl/plugin_manager.cpp
+    cli/repl/config.cpp
     cli/repl/commands/registry.cpp
     cli/repl/commands/help_command.cpp
     cli/repl/commands/display_mode_command.cpp
     cli/repl/commands/mode_command.cpp
     cli/repl/commands/max_rows_command.cpp
+    cli/repl/commands/reload_config_command.cpp
     cli/repl/commands/summarize_command.cpp
     cli/repl/commands/load_command.cpp
     cli/repl/commands/plugin_command.cpp

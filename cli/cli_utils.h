@@ -60,6 +60,7 @@ std::string sanitize_pasted_line(std::string line);
 struct QuerySource {
   xsql::Source::Kind kind = xsql::Source::Kind::Document;
   std::string value;
+  std::optional<std::string> alias;
   bool needs_input = true;
 };
 

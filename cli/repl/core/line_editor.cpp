@@ -270,6 +270,14 @@ void LineEditor::add_history(const std::string& line) {
   history_.add(line);
 }
 
+void LineEditor::set_history_size(size_t max_entries) {
+  history_.set_max_entries(max_entries);
+}
+
+bool LineEditor::set_history_path(const std::string& path, std::string& error) {
+  return history_.set_path(path, error);
+}
+
 void LineEditor::redraw_line(const std::string& buffer, size_t cursor) {
   int width = terminal_width();
   if (width <= 0) width = 80;

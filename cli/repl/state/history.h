@@ -30,6 +30,14 @@ class History {
   /// Inputs are line text; side effects include history mutations.
   void add(const std::string& line);
 
+  /// Updates the maximum number of entries to retain.
+  /// MUST clamp existing history to the new size.
+  void set_max_entries(size_t max_entries);
+
+  /// Enables history persistence at the given path and loads existing entries.
+  /// MUST create parent directories when needed.
+  bool set_path(const std::string& path, std::string& error);
+
   /// Moves to the previous history entry.
   /// MUST capture the current buffer when entering history navigation.
   /// Inputs are current buffer; outputs are updated buffer and navigation state.
@@ -45,6 +53,12 @@ class History {
   std::vector<std::string> entries_;
   size_t index_ = 0;
   std::string current_buffer_;
+  std::string path_;
+  bool persist_ = false;
+
+  void add_entry(const std::string& line);
+  bool load_from_file(std::string& error);
+  void trim_to_max();
 };
 
 }  // namespace xsql::cli

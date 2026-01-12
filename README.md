@@ -127,17 +127,39 @@ Notes:
 
 Commands:
 - `.help`: show help
-- `.load <path|url>` / `:load <path|url>`: load input (path or URL)
+- `.load <path|url> [--alias <name>]` / `:load <path|url> [--alias <name>]`: load input (path or URL)
 - `.mode duckbox|json|plain`: set output mode
 - `.display_mode more|less`: control JSON truncation
 - `.max_rows <n|inf>`: set duckbox max rows (`inf` = unlimited)
-- `.summarize [doc|path|url]`: list all tags and counts for the active input or target
+- `.reload_config`: reload REPL config from disk
+- `.summarize [doc|alias|path|url]`: list all tags and counts for the active input or target
 - `.quit` / `.q` / `:quit` / `:exit`: exit the REPL
 
 Keys:
 - Up/Down: history (max 5 entries)
 - Left/Right: move cursor
 - Ctrl+L: clear screen
+
+Tip:
+- Use `.load --alias doc1` to register multiple sources and query them via `FROM doc1`.
+
+## REPL Config (TOML)
+
+The REPL reads a TOML config file at `$XDG_CONFIG_HOME/xsql/config.toml`
+or `~/.config/xsql/config.toml`. Reload it with `.reload_config`.
+
+Example:
+```toml
+[repl]
+output_mode = "duckbox"
+display_mode = "more"
+max_rows = 40
+highlight = true
+
+[repl.history]
+max_entries = 500
+path = "~/.local/state/xsql/history"
+```
 
 ## Data Model
 

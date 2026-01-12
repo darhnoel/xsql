@@ -2,6 +2,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "test_harness.h"
@@ -42,9 +43,10 @@ static void test_summarize_content_basic() {
   config.input = "";
 
   xsql::cli::LineEditor editor(5, "xsql> ", 6);
-  std::string active_source = "inline";
-  std::optional<std::string> active_html =
-      "<html><body><div>Hello Khmer World</div></body></html>";
+  std::unordered_map<std::string, xsql::cli::LoadedSource> sources;
+  sources["doc"] = xsql::cli::LoadedSource{
+      "inline", std::optional<std::string>("<html><body><div>Hello Khmer World</div></body></html>")};
+  std::string active_alias = "doc";
   std::string last_full_output;
   bool display_full = true;
   size_t max_rows = 40;
@@ -54,8 +56,8 @@ static void test_summarize_content_basic() {
   xsql::cli::CommandContext ctx{
       config,
       editor,
-      active_source,
-      active_html,
+      sources,
+      active_alias,
       last_full_output,
       display_full,
       max_rows,
@@ -78,9 +80,10 @@ static void test_summarize_content_khmer_requires_plugin() {
   config.input = "";
 
   xsql::cli::LineEditor editor(5, "xsql> ", 6);
-  std::string active_source = "inline";
-  std::optional<std::string> active_html =
-      "<html><body><div>សូមអរគុណ</div></body></html>";
+  std::unordered_map<std::string, xsql::cli::LoadedSource> sources;
+  sources["doc"] = xsql::cli::LoadedSource{
+      "inline", std::optional<std::string>("<html><body><div>សូមអរគុណ</div></body></html>")};
+  std::string active_alias = "doc";
   std::string last_full_output;
   bool display_full = true;
   size_t max_rows = 40;
@@ -90,8 +93,8 @@ static void test_summarize_content_khmer_requires_plugin() {
   xsql::cli::CommandContext ctx{
       config,
       editor,
-      active_source,
-      active_html,
+      sources,
+      active_alias,
       last_full_output,
       display_full,
       max_rows,
@@ -115,9 +118,11 @@ static void test_summarize_content_max_tokens() {
   config.input = "";
 
   xsql::cli::LineEditor editor(5, "xsql> ", 6);
-  std::string active_source = "inline";
-  std::optional<std::string> active_html =
-      "<html><body><h3>Alpha Alpha Beta</h3><p>Gamma</p></body></html>";
+  std::unordered_map<std::string, xsql::cli::LoadedSource> sources;
+  sources["doc"] = xsql::cli::LoadedSource{
+      "inline",
+      std::optional<std::string>("<html><body><h3>Alpha Alpha Beta</h3><p>Gamma</p></body></html>")};
+  std::string active_alias = "doc";
   std::string last_full_output;
   bool display_full = true;
   size_t max_rows = 40;
@@ -127,8 +132,8 @@ static void test_summarize_content_max_tokens() {
   xsql::cli::CommandContext ctx{
       config,
       editor,
-      active_source,
-      active_html,
+      sources,
+      active_alias,
       last_full_output,
       display_full,
       max_rows,

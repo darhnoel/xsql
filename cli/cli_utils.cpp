@@ -411,6 +411,7 @@ std::optional<QuerySource> parse_query_source(const std::string& query) {
   QuerySource source;
   source.kind = parsed.query->source.kind;
   source.value = parsed.query->source.value;
+  source.alias = parsed.query->source.alias;
   if (source.kind == xsql::Source::Kind::RawHtml) {
     source.needs_input = false;
   } else if (source.kind == xsql::Source::Kind::Fragments) {

@@ -16,7 +16,8 @@ AutoCompleter::AutoCompleter() {
       "stopwords", "english", "none", "default"
   };
   commands_ = {
-      ".help", ".load", ".mode", ".display_mode", ".max_rows", ".summarize", ".summarize_content",
+      ".help", ".load", ".mode", ".display_mode", ".max_rows", ".reload_config",
+      ".summarize", ".summarize_content",
       ".plugin", ".quit", ".q",
       ":help", ":load", ":quit", ":exit"
   };
