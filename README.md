@@ -26,12 +26,21 @@ Interactive mode:
 ```python
 import xsql
 
-doc = xsql.load("data/index.html")
-print(xsql.summarize(doc))
-rows = xsql.execute("SELECT a FROM document WHERE attributes.href IS NOT NULL")
+# Load local HTML file and execute query
+doc = xsql.load("data/test.html")
+result1 = xsql.execute("SELECT a.href FROM document WHERE href CONTAINS ANY ('http', 'https')")
 
+print("result1:")
+for row in result1.rows:
+    print(row.get('href'))
+
+# Load remote HTML file with network access and execute query
 doc = xsql.load("https://example.com", allow_network=True)
-rows = xsql.execute("SELECT title FROM document")
+result2 = xsql.execute("SELECT p FROM doc")
+
+print("result2:")
+for row in result2.rows:
+    print(row)
 ```
 
 Install:
