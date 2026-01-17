@@ -95,6 +95,14 @@ std::vector<std::string> collect_source_uris(const xsql::QueryResult& result);
 /// MUST respect explicit projections and EXCLUDE source_uri requests.
 /// Inputs are results and source lists; outputs are mutated columns only.
 void apply_source_uri_policy(xsql::QueryResult& result, const std::vector<std::string>& sources);
+/// Counts data rows in an extracted HTML table.
+/// MUST exclude header rows when has_header is true.
+/// Inputs are table rows and header flag; outputs are row counts.
+size_t count_table_rows(const xsql::QueryResult::TableResult& table, bool has_header);
+/// Counts rows in a regular query result (non-table outputs).
+/// MUST reflect the full result set, not truncation.
+/// Inputs are QueryResult rows; outputs are row counts.
+size_t count_result_rows(const xsql::QueryResult& result);
 /// Builds a SHOW INPUT result or reports a missing-input error.
 /// MUST return false when no active source is available.
 bool build_show_input_result(const std::string& source_uri,

@@ -123,6 +123,7 @@ int main(int argc, char** argv) {
       if (result.to_table) {
         if (result.tables.empty()) {
           std::cout << "(empty table)" << std::endl;
+          std::cout << "Rows: 0" << std::endl;
         } else {
           for (size_t i = 0; i < result.tables.size(); ++i) {
             if (result.tables.size() > 1) {
@@ -130,6 +131,9 @@ int main(int argc, char** argv) {
             }
             std::cout << render_table_duckbox(result.tables[i], result.table_has_header, highlight,
                                               color, 40)
+                      << std::endl;
+            std::cout << "Rows: "
+                      << count_table_rows(result.tables[i], result.table_has_header)
                       << std::endl;
           }
         }
@@ -140,6 +144,7 @@ int main(int argc, char** argv) {
         options.highlight = highlight;
         options.is_tty = color;
         std::cout << xsql::render::render_duckbox(result, options) << std::endl;
+        std::cout << "Rows: " << count_result_rows(result) << std::endl;
       } else {
         std::string json_out = build_json_list(result);
         if (display_full) {
@@ -148,6 +153,7 @@ int main(int argc, char** argv) {
           TruncateResult truncated = truncate_output(json_out, 10, 10);
           std::cout << colorize_json(truncated.output, color) << std::endl;
         }
+        std::cout << "Rows: " << count_result_rows(result) << std::endl;
       }
     } else {
       std::string json_out = result.to_table ? build_table_json(result)

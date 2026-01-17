@@ -466,6 +466,20 @@ void apply_source_uri_policy(xsql::QueryResult& result, const std::vector<std::s
   result.columns.insert(result.columns.begin(), "source_uri");
 }
 
+size_t count_table_rows(const xsql::QueryResult::TableResult& table, bool has_header) {
+  if (table.rows.empty()) {
+    return 0;
+  }
+  if (!has_header) {
+    return table.rows.size();
+  }
+  return table.rows.size() > 0 ? table.rows.size() - 1 : 0;
+}
+
+size_t count_result_rows(const xsql::QueryResult& result) {
+  return result.rows.size();
+}
+
 bool build_show_input_result(const std::string& source_uri,
                              xsql::QueryResult& out,
                              std::string& error) {

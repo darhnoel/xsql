@@ -178,6 +178,7 @@ if (XSQL_BUILD_TESTS)
     tests/test_fragments.cpp
     tests/test_guardrails.cpp
     tests/test_meta_commands.cpp
+    tests/test_cli_utils.cpp
     cli/repl/core/line_editor.cpp
     cli/repl/ui/autocomplete.cpp
     cli/repl/state/history.cpp
@@ -292,6 +293,9 @@ if (XSQL_BUILD_TESTS)
     show_inputs_requires_source
     show_inputs_fallback_source
     auto_include_source_uri
+    count_table_rows_header
+    count_table_rows_no_header
+    count_result_rows
   )
   if (XSQL_ARROW_TARGET AND XSQL_PARQUET_TARGET)
     list(APPEND XSQL_TESTS parquet_export_smoke)

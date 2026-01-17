@@ -184,6 +184,7 @@ int run_repl(ReplConfig& config) {
         if (result.to_table) {
           if (result.tables.empty()) {
             std::cout << "(empty table)" << std::endl;
+            std::cout << "Rows: 0" << std::endl;
           } else {
             for (size_t i = 0; i < result.tables.size(); ++i) {
               if (result.tables.size() > 1) {
@@ -191,6 +192,9 @@ int run_repl(ReplConfig& config) {
               }
               std::cout << render_table_duckbox(result.tables[i], result.table_has_header,
                                                 config.highlight, config.color, max_rows)
+                        << std::endl;
+              std::cout << "Rows: "
+                        << count_table_rows(result.tables[i], result.table_has_header)
                         << std::endl;
             }
           }
@@ -201,6 +205,7 @@ int run_repl(ReplConfig& config) {
           options.highlight = config.highlight;
           options.is_tty = config.color;
           std::cout << xsql::render::render_duckbox(result, options) << std::endl;
+          std::cout << "Rows: " << count_result_rows(result) << std::endl;
         } else {
           std::string json_out = build_json_list(result);
           last_full_output = json_out;
@@ -210,6 +215,7 @@ int run_repl(ReplConfig& config) {
             TruncateResult truncated = truncate_output(json_out, 10, 10);
             std::cout << colorize_json(truncated.output, config.color) << std::endl;
           }
+          std::cout << "Rows: " << count_result_rows(result) << std::endl;
         }
       } else {
         std::string json_out = result.to_table ? build_table_json(result)

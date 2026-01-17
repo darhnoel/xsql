@@ -1,8 +1,8 @@
-# XSQL Documentation (v1.3.0)
+# XSQL Documentation (v1.3.1)
 
 XSQL is a SQL-style query language for static HTML. It treats each HTML element
 as a row in a node table and lets you filter by tag, attributes, and position.
-The project is now at v1.3.0 as an offline-first C++20 tool.
+The project is now at v1.3.1 as an offline-first C++20 tool.
 
 ## Quick Start
 
@@ -13,7 +13,7 @@ Build:
 
 Run on a file:
 ```
-./build/xsql --query "SELECT a FROM doc WHERE attributes.id = 'login'" --input ./data/index.html
+./build/xsql --query "SELECT a FROM doc WHERE id = 'login'" --input ./data/index.html
 ```
 
 Interactive mode:
@@ -119,6 +119,7 @@ Notes:
 - `--input` is required unless reading HTML from stdin.
 - Colors are auto-disabled when stdout is not a TTY.
 - Default output mode is `duckbox` (table-style).
+- Duckbox output prints a footer row count.
 - `--highlight` only affects duckbox headers (auto-disabled when not a TTY).
 - `--display_mode more` disables JSON truncation in non-interactive mode.
 - `TO CSV()` / `TO PARQUET()` write files instead of printing results.
@@ -189,7 +190,7 @@ FROM 'path.html'
 FROM 'https://example.com'   (URL fetching requires libcurl)
 FROM RAW('<div class="card"></div>')
 FROM FRAGMENTS(RAW('<ul><li>1</li><li>2</li></ul>')) AS frag
-FROM FRAGMENTS(SELECT inner_html(div) FROM doc WHERE attributes.class = 'pagination') AS frag
+FROM FRAGMENTS(SELECT inner_html(div) FROM doc WHERE class = 'pagination') AS frag
 FROM doc                     (alias for document)
 FROM document AS doc
 ```
@@ -249,14 +250,14 @@ Supported operators:
 - `HAS_DIRECT_TEXT` (case-insensitive substring match on direct text)
 - `AND`, `OR`
 
-Attribute references:
+Attribute references (shorthand):
 ```
-attributes.id = 'main'
-parent.attributes.class = 'menu'
-child.attributes.href <> ''
-ancestor.attributes.id = 'root'
-descendant.attributes.class IN ('nav','top')
-attributes.href CONTAINS 'example'
+id = 'main'
+parent.class = 'menu'
+child.href <> ''
+ancestor.id = 'root'
+descendant.class IN ('nav','top')
+href CONTAINS 'example'
 ```
 
 Field references:
@@ -270,16 +271,22 @@ div HAS_DIRECT_TEXT 'login'
 sibling_pos = 2
 ```
 
-Shorthand attribute filters:
+Shorthand attribute filters (default):
 ```
 title = "Menu"
 doc.title = "Menu"
 ```
 
+Longhand attribute filters (optional for clarity):
+```
+attributes.title = "Menu"
+doc.attributes.title = "Menu"
+```
+
 ### Aliases
 Alias the source and qualify attribute filters:
 ```
-SELECT a FROM document AS d WHERE d.attributes.id = 'login'
+SELECT a FROM document AS d WHERE d.id = 'login'
 ```
 
 ### Projections
@@ -310,7 +317,7 @@ Notes:
 ### TO LIST()
 Output a JSON list for a single projected column:
 ```
-SELECT link.href FROM doc WHERE attributes.rel = "preload" TO LIST()
+SELECT link.href FROM doc WHERE rel = "preload" TO LIST()
 ```
 
 ### TO TABLE()
@@ -320,7 +327,7 @@ all rows as data (CSV exports will include generated `col1..colN` headers):
 ```
 SELECT table FROM doc TO TABLE()
 SELECT table FROM doc TO TABLE(HEADER=OFF)
-SELECT table FROM doc WHERE attributes.id = 'stats' TO TABLE(EXPORT='stats.csv')
+SELECT table FROM doc WHERE id = 'stats' TO TABLE(EXPORT='stats.csv')
 ```
 
 If multiple tables match, the output is a list of objects:
@@ -334,7 +341,7 @@ Note: `TO LIST()` always returns JSON output. `TO TABLE()` uses duckbox by defau
 ### TO CSV()
 Write any rectangular result to a CSV file:
 ```
-SELECT a.href, a.text FROM doc WHERE attributes.href IS NOT NULL TO CSV('links.csv')
+SELECT a.href, a.text FROM doc WHERE href IS NOT NULL TO CSV('links.csv')
 ```
 
 ### TO PARQUET()
@@ -357,21 +364,21 @@ Minimal aggregate:
 ```
 SELECT COUNT(a) FROM doc
 SELECT COUNT(*) FROM doc
-SELECT COUNT(link) FROM doc WHERE attributes.rel = "preload"
+SELECT COUNT(link) FROM doc WHERE rel = "preload"
 ```
 
 ### Regex
 Use `~` with ECMAScript regex:
 ```
-SELECT a FROM doc WHERE attributes.href ~ '.*\\.pdf$'
+SELECT a FROM doc WHERE href ~ '.*\\.pdf$'
 ```
 
 ### Contains (attributes)
 Case-insensitive substring match for attribute values:
 ```
-SELECT a FROM doc WHERE attributes.href CONTAINS 'techkhmer'
-SELECT a FROM doc WHERE attributes.href CONTAINS ALL ('https', '.html')
-SELECT a FROM doc WHERE attributes.href CONTAINS ANY ('https', 'mailto')
+SELECT a FROM doc WHERE href CONTAINS 'techkhmer'
+SELECT a FROM doc WHERE href CONTAINS ALL ('https', '.html')
+SELECT a FROM doc WHERE href CONTAINS ANY ('https', 'mailto')
 ```
 
 ### Direct Text
@@ -385,7 +392,7 @@ Compute per-node TF-IDF scores across the matched nodes. Each matched node is
 treated as a document in the IDF corpus.
 ```
 SELECT TFIDF(p, li, TOP_TERMS=30, MIN_DF=1, MAX_DF=0, STOPWORDS=ENGLISH)
-  FROM doc WHERE attributes.class = 'article'
+  FROM doc WHERE class = 'article'
 ```
 
 Output columns: `node_id`, `parent_id`, `tag`, `terms_score` (term → score map).
@@ -405,20 +412,20 @@ Notes:
 
 ```
 -- Filters
-SELECT ul FROM doc WHERE attributes.id = 'countries';
-SELECT table FROM doc WHERE parent.attributes.id = 'table-01';
-SELECT div FROM doc WHERE descendant.attributes.class = 'card';
+SELECT ul FROM doc WHERE id = 'countries';
+SELECT table FROM doc WHERE parent.id = 'table-01';
+SELECT div FROM doc WHERE descendant.class = 'card';
 SELECT span FROM doc WHERE parent_id = 1;
 SELECT span FROM doc WHERE node_id = 1;
 SELECT div FROM doc WHERE attributes IS NULL;
 
 -- Lists and exports
-SELECT link.href FROM doc WHERE attributes.rel = "preload" TO LIST();
-SELECT a.href, a.text FROM doc WHERE attributes.href IS NOT NULL TO CSV('links.csv');
+SELECT link.href FROM doc WHERE rel = "preload" TO LIST();
+SELECT a.href, a.text FROM doc WHERE href IS NOT NULL TO CSV('links.csv');
 SELECT * FROM doc TO PARQUET('nodes.parquet');
 
 -- Fragments
-SELECT li FROM FRAGMENTS(SELECT inner_html(ul) FROM doc WHERE attributes.id = 'menu') AS frag;
+SELECT li FROM FRAGMENTS(SELECT inner_html(ul) FROM doc WHERE id = 'menu') AS frag;
 
 -- Ordering
 SELECT div FROM doc ORDER BY node_id DESC;
