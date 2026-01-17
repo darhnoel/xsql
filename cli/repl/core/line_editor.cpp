@@ -82,8 +82,22 @@ bool LineEditor::read_line(std::string& out, const std::string& initial) {
       flush_utf8_pending();
       bool is_command = !buffer.empty() && (buffer[0] == '.' || buffer[0] == ':');
       if (!buffer.empty() && buffer.find(';') == std::string::npos && !is_command) {
+        size_t line_start = buffer.rfind('\n', cursor > 0 ? cursor - 1 : 0);
+        line_start = (line_start == std::string::npos) ? 0 : line_start + 1;
+        size_t indent_end = line_start;
+        while (indent_end < buffer.size() &&
+               (buffer[indent_end] == ' ' || buffer[indent_end] == '\t')) {
+          ++indent_end;
+        }
+        std::string indent = buffer.substr(line_start, indent_end - line_start);
         buffer.insert(buffer.begin() + static_cast<long>(cursor), '\n');
         ++cursor;
+        if (!indent.empty()) {
+          buffer.insert(buffer.begin() + static_cast<long>(cursor),
+                        indent.begin(),
+                        indent.end());
+          cursor += indent.size();
+        }
         redraw_line(buffer, cursor);
         continue;
       }
@@ -114,7 +128,22 @@ bool LineEditor::read_line(std::string& out, const std::string& initial) {
       flush_utf8_pending();
       std::vector<std::string> suggestions;
       bool changed = completer_->complete(buffer, cursor, suggestions);
-      if (!suggestions.empty() && !changed) {
+      if (suggestions.empty() && !changed) {
+        size_t line_start = buffer.rfind('\n', cursor > 0 ? cursor - 1 : 0);
+        line_start = (line_start == std::string::npos) ? 0 : line_start + 1;
+        bool only_ws = true;
+        for (size_t i = line_start; i < cursor; ++i) {
+          if (buffer[i] != ' ' && buffer[i] != '\t') {
+            only_ws = false;
+            break;
+          }
+        }
+        if (only_ws) {
+          buffer.insert(buffer.begin() + static_cast<long>(cursor), ' ');
+          buffer.insert(buffer.begin() + static_cast<long>(cursor), ' ');
+          cursor += 2;
+        }
+      } else if (!suggestions.empty() && !changed) {
         std::cout << "\n";
         for (size_t i = 0; i < suggestions.size(); ++i) {
           if (i > 0) std::cout << " ";
@@ -162,6 +191,10 @@ bool LineEditor::read_line(std::string& out, const std::string& initial) {
             size_t line_start = buffer.rfind('\n', cursor > 0 ? cursor - 1 : 0);
             size_t current_line_start = (line_start == std::string::npos) ? 0 : line_start + 1;
             if (current_line_start == 0) {
+              if (!history_.empty() && history_.prev(buffer)) {
+                cursor = buffer.size();
+                redraw_line(buffer, cursor);
+              }
               continue;
             }
             size_t prev_line_end = current_line_start - 1;
@@ -186,6 +219,10 @@ bool LineEditor::read_line(std::string& out, const std::string& initial) {
             size_t current_line_start = (line_start == std::string::npos) ? 0 : line_start + 1;
             size_t line_end = buffer.find('\n', current_line_start);
             if (line_end == std::string::npos) {
+              if (history_.next(buffer)) {
+                cursor = buffer.size();
+                redraw_line(buffer, cursor);
+              }
               continue;
             }
             size_t next_line_start = line_end + 1;

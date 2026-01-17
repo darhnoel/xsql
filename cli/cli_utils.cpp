@@ -390,18 +390,35 @@ std::string rewrite_from_path_if_needed(const std::string& query) {
 }
 
 std::string sanitize_pasted_line(std::string line) {
-  const std::string prompt = "xsql> ";
-  size_t pos = line.rfind(prompt);
-  if (pos != std::string::npos) {
-    line = line.substr(pos + prompt.size());
+  std::string cleaned;
+  size_t start = 0;
+  while (start <= line.size()) {
+    size_t end = line.find('\n', start);
+    std::string chunk = (end == std::string::npos)
+                            ? line.substr(start)
+                            : line.substr(start, end - start);
+    if (!chunk.empty() && chunk.back() == '\r') {
+      chunk.pop_back();
+    }
+    if (chunk.rfind("xsql> ", 0) == 0) {
+      chunk = chunk.substr(6);
+    } else if (chunk.rfind("> ", 0) == 0) {
+      chunk = chunk.substr(2);
+    }
+    cleaned += chunk;
+    if (end == std::string::npos) {
+      break;
+    }
+    cleaned.push_back('\n');
+    start = end + 1;
   }
-  while (!line.empty() && std::isspace(static_cast<unsigned char>(line.front()))) {
-    line.erase(line.begin());
+  while (!cleaned.empty() && std::isspace(static_cast<unsigned char>(cleaned.front()))) {
+    cleaned.erase(cleaned.begin());
   }
-  while (!line.empty() && std::isspace(static_cast<unsigned char>(line.back()))) {
-    line.pop_back();
+  while (!cleaned.empty() && std::isspace(static_cast<unsigned char>(cleaned.back()))) {
+    cleaned.pop_back();
   }
-  return line;
+  return cleaned;
 }
 
 std::optional<QuerySource> parse_query_source(const std::string& query) {
