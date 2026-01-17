@@ -177,6 +177,7 @@ if (XSQL_BUILD_TESTS)
     tests/test_repl.cpp
     tests/test_fragments.cpp
     tests/test_guardrails.cpp
+    tests/test_meta_commands.cpp
     cli/repl/core/line_editor.cpp
     cli/repl/ui/autocomplete.cpp
     cli/repl/state/history.cpp
@@ -283,6 +284,14 @@ if (XSQL_BUILD_TESTS)
     summarize_content_basic
     summarize_content_khmer_requires_plugin
     summarize_content_max_tokens
+    parse_show_describe
+    execute_describe_doc
+    show_functions_output
+    describe_language_output
+    show_input_requires_source
+    show_inputs_requires_source
+    show_inputs_fallback_source
+    auto_include_source_uri
   )
   if (XSQL_ARROW_TARGET AND XSQL_PARQUET_TARGET)
     list(APPEND XSQL_TESTS parquet_export_smoke)

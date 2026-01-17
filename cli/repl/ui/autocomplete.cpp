@@ -13,7 +13,8 @@ AutoCompleter::AutoCompleter() {
       "attributes", "tag", "text", "parent", "child", "ancestor", "descendant",
       "parent_id", "sibling_pos", "inner_html", "trim", "is", "null", "header", "noheader",
       "no_header", "on", "off", "export", "tfidf", "top_terms", "min_df", "max_df",
-      "stopwords", "english", "none", "default"
+      "stopwords", "english", "none", "default", "show", "describe", "input", "inputs",
+      "functions", "axes", "operators", "language"
   };
   commands_ = {
       ".help", ".load", ".mode", ".display_mode", ".max_rows", ".reload_config",

@@ -23,16 +23,6 @@ bool has_non_tag_self_predicate(const Expr& expr) {
   return has_non_tag_self_predicate(bin.left) || has_non_tag_self_predicate(bin.right);
 }
 
-/// Checks whether the SELECT list projects fields or aggregates.
-/// MUST return false for tag-only selections.
-/// Inputs are Query objects; outputs are boolean with no side effects.
-bool is_projection_query(const Query& query) {
-  for (const auto& item : query.select_items) {
-    if (item.field.has_value() || item.aggregate != Query::SelectItem::Aggregate::None) return true;
-  }
-  return false;
-}
-
 /// Checks whether the query is a SUMMARIZE aggregate.
 /// MUST require a single select item with Summarize.
 /// Inputs are Query objects; outputs are boolean with no side effects.
@@ -59,6 +49,13 @@ bool is_wildcard_only(const Query& query) {
 }
 
 }  // namespace
+
+bool is_projection_query(const Query& query) {
+  for (const auto& item : query.select_items) {
+    if (item.field.has_value() || item.aggregate != Query::SelectItem::Aggregate::None) return true;
+  }
+  return false;
+}
 
 /// Validates projection, aggregate, and list/table rules.
 /// MUST throw on incompatible combinations to keep output schemas stable.

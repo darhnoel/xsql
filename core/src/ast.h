@@ -74,6 +74,16 @@ struct BinaryExpr {
 };
 
 struct Query {
+  enum class Kind {
+    Select,
+    ShowInput,
+    ShowInputs,
+    ShowFunctions,
+    ShowAxes,
+    ShowOperators,
+    DescribeDoc,
+    DescribeLanguage
+  } kind = Kind::Select;
   struct ExportSink {
     enum class Kind { None, Csv, Parquet } kind = Kind::None;
     std::string path;

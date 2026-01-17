@@ -37,6 +37,10 @@ struct QueryResult {
   };
   std::vector<std::string> columns;
   std::vector<QueryResultRow> rows;
+  /// True when output columns come from implicit defaults (e.g., SELECT * or tag-only).
+  bool columns_implicit = false;
+  /// True when EXCLUDE explicitly removed source_uri in the query.
+  bool source_uri_excluded = false;
   bool to_list = false;
   struct TableResult {
     /// Holds extracted HTML table rows when TO TABLE() is requested.

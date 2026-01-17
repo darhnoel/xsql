@@ -7,6 +7,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
+#include <vector>
 #include <unistd.h>
 
 #include "cli_utils.h"
@@ -35,6 +36,7 @@ int run_repl(ReplConfig& config) {
   std::string last_full_output;
   bool display_full = config.display_full;
   size_t max_rows = 40;
+  std::vector<std::string> last_sources;
   std::string line;
 
   if (!isatty(fileno(stdout))) {
@@ -108,41 +110,65 @@ int run_repl(ReplConfig& config) {
     try {
       xsql::QueryResult result;
       auto source = parse_query_source(query_text);
-      if (source.has_value() && source->kind == xsql::Source::Kind::Url) {
-        result = xsql::execute_query_from_url(source->value, query_text, config.timeout_ms);
-      } else if (source.has_value() && source->kind == xsql::Source::Kind::Path) {
-        result = xsql::execute_query_from_file(source->value, query_text);
-      } else if (source.has_value() && source->kind == xsql::Source::Kind::RawHtml) {
-        result = xsql::execute_query_from_document("", query_text);
-      } else if (source.has_value() && source->kind == xsql::Source::Kind::Fragments && !source->needs_input) {
-        result = xsql::execute_query_from_document("", query_text);
+      if (source.has_value() && source->statement_kind != xsql::Query::Kind::Select) {
+        std::string active_source;
+        auto active_it = sources.find(active_alias);
+        if (active_it != sources.end()) {
+          active_source = active_it->second.source;
+        }
+        std::string meta_error;
+        if (source->statement_kind == xsql::Query::Kind::ShowInput) {
+          if (!build_show_input_result(active_source, result, meta_error)) {
+            throw std::runtime_error(meta_error);
+          }
+        } else if (source->statement_kind == xsql::Query::Kind::ShowInputs) {
+          if (!build_show_inputs_result(last_sources, active_source, result, meta_error)) {
+            throw std::runtime_error(meta_error);
+          }
+        } else {
+          result = xsql::execute_query_from_document("", query_text);
+        }
       } else {
-        std::string alias = active_alias;
-        if (source.has_value() && source->alias.has_value()) {
-          alias = *source->alias;
-        }
-        auto it = sources.find(alias);
-        if (it == sources.end() || it->second.source.empty()) {
-          if (config.color) std::cerr << kColor.red;
+        if (source.has_value() && source->kind == xsql::Source::Kind::Url) {
+          result = xsql::execute_query_from_url(source->value, query_text, config.timeout_ms);
+        } else if (source.has_value() && source->kind == xsql::Source::Kind::Path) {
+          result = xsql::execute_query_from_file(source->value, query_text);
+        } else if (source.has_value() && source->kind == xsql::Source::Kind::RawHtml) {
+          result = xsql::execute_query_from_document("", query_text);
+        } else if (source.has_value() && source->kind == xsql::Source::Kind::Fragments &&
+                   !source->needs_input) {
+          result = xsql::execute_query_from_document("", query_text);
+        } else {
+          std::string alias = active_alias;
           if (source.has_value() && source->alias.has_value()) {
-            std::cerr << "No input loaded for alias '" << alias
-                      << "'. Use .load <path|url> --alias " << alias << "." << std::endl;
-          } else {
-            std::cerr << "No input loaded. Use :load <path|url> or start with --input <path|url>." << std::endl;
+            alias = *source->alias;
           }
-          if (config.color) std::cerr << kColor.reset;
-          continue;
-        }
-        if (!it->second.html.has_value()) {
-          it->second.html = load_html_input(it->second.source, config.timeout_ms);
-        }
-        result = xsql::execute_query_from_document(*it->second.html, query_text);
-        if (!it->second.source.empty() &&
-            (!source.has_value() || source->kind == xsql::Source::Kind::Document)) {
-          for (auto& row : result.rows) {
-            row.source_uri = it->second.source;
+          auto it = sources.find(alias);
+          if (it == sources.end() || it->second.source.empty()) {
+            if (config.color) std::cerr << kColor.red;
+            if (source.has_value() && source->alias.has_value()) {
+              std::cerr << "No input loaded for alias '" << alias
+                        << "'. Use .load <path|url> --alias " << alias << "." << std::endl;
+            } else {
+              std::cerr << "No input loaded. Use :load <path|url> or start with --input <path|url>."
+                        << std::endl;
+            }
+            if (config.color) std::cerr << kColor.reset;
+            continue;
+          }
+          if (!it->second.html.has_value()) {
+            it->second.html = load_html_input(it->second.source, config.timeout_ms);
+          }
+          result = xsql::execute_query_from_document(*it->second.html, query_text);
+          if (!it->second.source.empty() &&
+              (!source.has_value() || source->kind == xsql::Source::Kind::Document)) {
+            for (auto& row : result.rows) {
+              row.source_uri = it->second.source;
+            }
           }
         }
+        last_sources = collect_source_uris(result);
+        apply_source_uri_policy(result, last_sources);
       }
       if (result.export_sink.kind != xsql::QueryResult::ExportSink::Kind::None) {
         std::string export_error;

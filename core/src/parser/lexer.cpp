@@ -122,6 +122,13 @@ Token Lexer::lex_identifier_or_keyword() {
   if (upper == "IS") return Token{TokenType::KeywordIs, out, start};
   if (upper == "NOT") return Token{TokenType::KeywordNot, out, start};
   if (upper == "NULL") return Token{TokenType::KeywordNull, out, start};
+  if (upper == "SHOW") return Token{TokenType::KeywordShow, out, start};
+  if (upper == "DESCRIBE") return Token{TokenType::KeywordDescribe, out, start};
+  if (upper == "INPUT") return Token{TokenType::KeywordInput, out, start};
+  if (upper == "INPUTS") return Token{TokenType::KeywordInputs, out, start};
+  if (upper == "FUNCTIONS") return Token{TokenType::KeywordFunctions, out, start};
+  if (upper == "AXES") return Token{TokenType::KeywordAxes, out, start};
+  if (upper == "OPERATORS") return Token{TokenType::KeywordOperators, out, start};
   return Token{TokenType::Identifier, out, start};
 }
 

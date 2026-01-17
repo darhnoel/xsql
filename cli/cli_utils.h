@@ -62,6 +62,7 @@ struct QuerySource {
   std::string value;
   std::optional<std::string> alias;
   bool needs_input = true;
+  xsql::Query::Kind statement_kind = xsql::Query::Kind::Select;
 };
 
 /// Parses the query to identify its source kind for execution routing.
@@ -85,6 +86,26 @@ std::string build_table_json(const xsql::QueryResult& result);
 /// MUST preserve deterministic ordering and MUST escape tag names.
 /// Inputs are summary pairs; outputs are JSON text with no side effects.
 std::string build_summary_json(const std::vector<std::pair<std::string, size_t>>& summary);
+
+/// Collects distinct source URIs in the order first seen.
+/// MUST preserve encounter order and MUST ignore empty rows safely.
+/// Inputs are QueryResult rows; outputs are source lists with no side effects.
+std::vector<std::string> collect_source_uris(const xsql::QueryResult& result);
+/// Applies the default source_uri visibility policy to result columns.
+/// MUST respect explicit projections and EXCLUDE source_uri requests.
+/// Inputs are results and source lists; outputs are mutated columns only.
+void apply_source_uri_policy(xsql::QueryResult& result, const std::vector<std::string>& sources);
+/// Builds a SHOW INPUT result or reports a missing-input error.
+/// MUST return false when no active source is available.
+bool build_show_input_result(const std::string& source_uri,
+                             xsql::QueryResult& out,
+                             std::string& error);
+/// Builds a SHOW INPUTS result from the last sources or active source.
+/// MUST return false when no sources are available.
+bool build_show_inputs_result(const std::vector<std::string>& sources,
+                              const std::string& fallback_source,
+                              xsql::QueryResult& out,
+                              std::string& error);
 
 /// Renders an extracted HTML table into duckbox format for terminal display.
 /// MUST honor max_rows and MUST avoid color when not in a TTY.

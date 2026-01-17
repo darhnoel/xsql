@@ -56,6 +56,11 @@ void validate_export_sink(const Query& query);
 /// Inputs are Query objects; outputs are exceptions on failure.
 void validate_limits(const Query& query);
 
+/// Checks whether the query projects fields or aggregates.
+/// MUST return false for tag-only selections.
+/// Inputs are Query objects; outputs are boolean with no side effects.
+bool is_projection_query(const Query& query);
+
 /// Checks whether a query selects only the table tag.
 /// MUST return false for projected fields or aggregates.
 /// Inputs are Query objects; outputs are boolean with no side effects.

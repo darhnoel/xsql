@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "query_parser.h"
 #include "render/duckbox_renderer.h"
@@ -429,6 +430,7 @@ std::optional<QuerySource> parse_query_source(const std::string& query) {
   source.kind = parsed.query->source.kind;
   source.value = parsed.query->source.value;
   source.alias = parsed.query->source.alias;
+  source.statement_kind = parsed.query->kind;
   if (source.kind == xsql::Source::Kind::RawHtml) {
     source.needs_input = false;
   } else if (source.kind == xsql::Source::Kind::Fragments) {
@@ -437,12 +439,75 @@ std::optional<QuerySource> parse_query_source(const std::string& query) {
   return source;
 }
 
+std::vector<std::string> collect_source_uris(const xsql::QueryResult& result) {
+  std::vector<std::string> sources;
+  std::unordered_set<std::string> seen;
+  for (const auto& row : result.rows) {
+    if (seen.insert(row.source_uri).second) {
+      sources.push_back(row.source_uri);
+    }
+  }
+  return sources;
+}
+
+void apply_source_uri_policy(xsql::QueryResult& result, const std::vector<std::string>& sources) {
+  if (!result.columns_implicit || result.source_uri_excluded) {
+    return;
+  }
+  if (result.to_list || result.to_table) {
+    return;
+  }
+  if (sources.size() <= 1) {
+    return;
+  }
+  if (std::find(result.columns.begin(), result.columns.end(), "source_uri") != result.columns.end()) {
+    return;
+  }
+  result.columns.insert(result.columns.begin(), "source_uri");
+}
+
+bool build_show_input_result(const std::string& source_uri,
+                             xsql::QueryResult& out,
+                             std::string& error) {
+  if (source_uri.empty()) {
+    error = "No input loaded. Use .load <path|url> or --input <path|url>.";
+    return false;
+  }
+  out.columns = {"key", "value"};
+  xsql::QueryResultRow row;
+  row.attributes["key"] = "source_uri";
+  row.attributes["value"] = source_uri;
+  out.rows.push_back(std::move(row));
+  return true;
+}
+
+bool build_show_inputs_result(const std::vector<std::string>& sources,
+                              const std::string& fallback_source,
+                              xsql::QueryResult& out,
+                              std::string& error) {
+  std::vector<std::string> effective = sources;
+  if (effective.empty() && !fallback_source.empty()) {
+    effective.push_back(fallback_source);
+  }
+  if (effective.empty()) {
+    error = "No input loaded. Use .load <path|url> or --input <path|url>.";
+    return false;
+  }
+  out.columns = {"source_uri"};
+  for (const auto& source : effective) {
+    xsql::QueryResultRow row;
+    row.source_uri = source;
+    out.rows.push_back(std::move(row));
+  }
+  return true;
+}
+
 std::string build_json(const xsql::QueryResult& result) {
 #ifdef XSQL_USE_NLOHMANN_JSON
   using nlohmann::json;
   std::vector<std::string> columns = result.columns;
   if (columns.empty()) {
-    columns = {"node_id", "tag", "attributes", "parent_id", "source_uri"};
+    columns = {"node_id", "tag", "attributes", "parent_id"};
   }
   json out = json::array();
   for (const auto& row : result.rows) {
@@ -485,7 +550,7 @@ std::string build_json(const xsql::QueryResult& result) {
 #else
   std::vector<std::string> columns = result.columns;
   if (columns.empty()) {
-    columns = {"node_id", "tag", "attributes", "parent_id", "source_uri"};
+    columns = {"node_id", "tag", "attributes", "parent_id"};
   }
   std::ostringstream oss;
   oss << "[";

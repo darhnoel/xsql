@@ -72,23 +72,41 @@ int main(int argc, char** argv) {
     query = rewrite_from_path_if_needed(query);
     xsql::QueryResult result;
     auto source = parse_query_source(query);
-    if (source.has_value() && source->kind == xsql::Source::Kind::Url) {
-      result = xsql::execute_query_from_url(source->value, query, timeout_ms);
-    } else if (source.has_value() && source->kind == xsql::Source::Kind::Path) {
-      result = xsql::execute_query_from_file(source->value, query);
-    } else if (source.has_value() && source->kind == xsql::Source::Kind::RawHtml) {
-      result = xsql::execute_query_from_document("", query);
-    } else if (source.has_value() && source->kind == xsql::Source::Kind::Fragments && !source->needs_input) {
-      result = xsql::execute_query_from_document("", query);
-    } else if (input.empty() || input == "document") {
-      std::string html = read_stdin();
-      result = xsql::execute_query_from_document(html, query);
-    } else {
-      if (is_url(input)) {
-        result = xsql::execute_query_from_url(input, query, timeout_ms);
+    if (source.has_value() && source->statement_kind != xsql::Query::Kind::Select) {
+      std::string meta_error;
+      if (source->statement_kind == xsql::Query::Kind::ShowInput) {
+        if (!build_show_input_result(input, result, meta_error)) {
+          throw std::runtime_error(meta_error);
+        }
+      } else if (source->statement_kind == xsql::Query::Kind::ShowInputs) {
+        if (!build_show_inputs_result({}, input, result, meta_error)) {
+          throw std::runtime_error(meta_error);
+        }
       } else {
-        result = xsql::execute_query_from_file(input, query);
+        result = xsql::execute_query_from_document("", query);
       }
+    } else {
+      if (source.has_value() && source->kind == xsql::Source::Kind::Url) {
+        result = xsql::execute_query_from_url(source->value, query, timeout_ms);
+      } else if (source.has_value() && source->kind == xsql::Source::Kind::Path) {
+        result = xsql::execute_query_from_file(source->value, query);
+      } else if (source.has_value() && source->kind == xsql::Source::Kind::RawHtml) {
+        result = xsql::execute_query_from_document("", query);
+      } else if (source.has_value() && source->kind == xsql::Source::Kind::Fragments &&
+                 !source->needs_input) {
+        result = xsql::execute_query_from_document("", query);
+      } else if (input.empty() || input == "document") {
+        std::string html = read_stdin();
+        result = xsql::execute_query_from_document(html, query);
+      } else {
+        if (is_url(input)) {
+          result = xsql::execute_query_from_url(input, query, timeout_ms);
+        } else {
+          result = xsql::execute_query_from_file(input, query);
+        }
+      }
+      auto sources = collect_source_uris(result);
+      apply_source_uri_policy(result, sources);
     }
 
     if (result.export_sink.kind != xsql::QueryResult::ExportSink::Kind::None) {

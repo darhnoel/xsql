@@ -48,6 +48,13 @@ enum class TokenType {
   KeywordIs,
   KeywordNot,
   KeywordNull,
+  KeywordShow,
+  KeywordDescribe,
+  KeywordInput,
+  KeywordInputs,
+  KeywordFunctions,
+  KeywordAxes,
+  KeywordOperators,
   Equal,
   NotEqual,
   RegexMatch

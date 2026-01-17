@@ -25,6 +25,8 @@ CommandHandler make_help_command() {
                  "    Manage plugins (load/install/remove/list)\n";
     std::cout << "  .summarize_content [doc|alias|path|url] [--lang <code>] [--max_tokens <n>]\n"
                  "    Summarize text content\n";
+    std::cout << "  SHOW INPUT(S) / SHOW FUNCTIONS / SHOW AXES / SHOW OPERATORS\n"
+                 "  DESCRIBE DOC / DESCRIBE LANGUAGE\n";
     std::cout << "  Query export: TO CSV('file.csv') / TO PARQUET('file.parquet')\n";
     std::cout << "  .quit / .q             Exit\n";
     return true;

@@ -1,8 +1,8 @@
-# XSQL Documentation (v1.2.1)
+# XSQL Documentation (v1.3.0)
 
 XSQL is a SQL-style query language for static HTML. It treats each HTML element
 as a row in a node table and lets you filter by tag, attributes, and position.
-The project is now at v1.2.0 as an offline-first C++20 tool.
+The project is now at v1.3.0 as an offline-first C++20 tool.
 
 ## Quick Start
 
@@ -171,6 +171,9 @@ Each HTML element becomes a row with fields:
 - `sibling_pos` (int64, 1-based position among siblings)
 - `source_uri` (string)
 
+Notes:
+- `source_uri` is stored for provenance but hidden from default output unless multiple sources appear.
+
 ## Query Language
 
 ### Basic Form
@@ -197,6 +200,23 @@ Notes:
 - `FRAGMENTS` accepts either `RAW('<html>')` or a subquery returning a single HTML string column (use `inner_html(...)`).
 - `FRAGMENTS` subqueries cannot use file or URL sources.
 
+### Meta Queries
+```
+SHOW INPUT;
+SHOW INPUTS;
+SHOW FUNCTIONS;
+SHOW AXES;
+SHOW OPERATORS;
+DESCRIBE doc;
+DESCRIBE language;
+```
+
+Notes:
+- `SHOW INPUT` reports the active source.
+- `SHOW INPUTS` lists distinct sources from the last result (or the active source if none).
+- `DESCRIBE doc` shows the base schema; axes are documented via `SHOW AXES`.
+- `DESCRIBE language` lists the SQL language surface as a single table.
+
 ### Tags
 ```
 SELECT div
@@ -208,6 +228,14 @@ Exclude columns:
 ```
 SELECT * EXCLUDE source_uri FROM doc
 SELECT * EXCLUDE (source_uri, tag) FROM doc
+```
+
+### Axes (Relationship Selectors)
+```
+parent
+child
+ancestor
+descendant
 ```
 
 ### WHERE Expressions
