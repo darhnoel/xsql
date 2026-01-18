@@ -144,6 +144,48 @@ Keys:
 Tip:
 - Use `.load --alias doc1` to register multiple sources and query them via `FROM doc1`.
 
+## Khmer Number Module (Optional)
+
+Install the plugin (REPL):
+```
+.plugin install number_to_khmer
+.plugin load number_to_khmer
+```
+
+Enable at build time (built-in commands):
+```
+cmake -S . -B build -DXSQL_ENABLE_KHMER_NUMBER=ON
+cmake --build build
+```
+
+REPL commands:
+- `.number_to_khmer <number> [--compact] [--khmer-digits]`
+- `.khmer_to_number <khmer_text> [--khmer-digits]`
+
+Example:
+```
+xsql> .number_to_khmer 12.30
+ដប់-ពីរ-ក្បៀស-បី-សូន្យ
+xsql> .number_to_khmer --compact 12.30
+ដប់ពីរក្បៀសបីសូន្យ
+xsql> .number_to_khmer --khmer-digits 12.30
+១២.៣០
+xsql> .khmer_to_number ដក-មួយ-រយ-ក្បៀស-ប្រាំ-សូន្យ
+-100.50
+xsql> .khmer_to_number --khmer-digits ដប់-ពីរ
+១២
+```
+
+Formatting rules:
+- Tokens are joined with `-` (the parser also accepts whitespace).
+- Reverse parsing also accepts concatenated Khmer number words without separators.
+- Decimal marker token: `ក្បៀស`
+- Negative marker token: `ដក`
+- Integer zeros are omitted unless the entire integer part is zero (`សូន្យ`).
+- Decimal digits are emitted one-by-one and preserved (including trailing zeros).
+- `--khmer-digits` outputs Khmer digits (0-9 => ០-៩) with `.` as the decimal point.
+- Scales are defined up to 10^36; the module is CLI-only for now.
+
 ## REPL Config (TOML)
 
 The REPL reads a TOML config file at `$XDG_CONFIG_HOME/xsql/config.toml`

@@ -21,6 +21,9 @@ void register_fragments_tests(std::vector<TestCase>& tests);
 void register_guardrails_tests(std::vector<TestCase>& tests);
 void register_meta_command_tests(std::vector<TestCase>& tests);
 void register_cli_utils_tests(std::vector<TestCase>& tests);
+#ifdef XSQL_ENABLE_KHMER_NUMBER
+void register_khmer_number_tests(std::vector<TestCase>& tests);
+#endif
 
 int main(int argc, char** argv) {
   std::vector<TestCase> tests;
@@ -41,6 +44,9 @@ int main(int argc, char** argv) {
   register_guardrails_tests(tests);
   register_meta_command_tests(tests);
   register_cli_utils_tests(tests);
+#ifdef XSQL_ENABLE_KHMER_NUMBER
+  register_khmer_number_tests(tests);
+#endif
 
   if (argc > 1) {
     std::string target = argv[1];

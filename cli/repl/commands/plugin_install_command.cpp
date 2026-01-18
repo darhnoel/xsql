@@ -77,7 +77,10 @@ CommandHandler make_plugin_install_command() {
       return true;
     }
 
-    std::filesystem::path plugin_root = std::filesystem::path("plugins") / "src" / match->name;
+    bool use_local_source = match->repo == "local";
+    std::filesystem::path plugin_root =
+        use_local_source ? std::filesystem::current_path()
+                         : std::filesystem::path("plugins") / "src" / match->name;
     std::filesystem::path source_root = plugin_root / match->path;
     std::filesystem::path wrapper_root =
         std::filesystem::path("plugins") / "cmake" / match->name;
@@ -95,38 +98,46 @@ CommandHandler make_plugin_install_command() {
     std::filesystem::path git_log = log_dir / "git.log";
     std::filesystem::path cmake_log = log_dir / "cmake.log";
 
-    if (std::filesystem::exists(plugin_root) && !std::filesystem::exists(plugin_root / ".git")) {
-      std::cerr << "Error: plugin source already exists but is not a git repo: "
-                << plugin_root << std::endl;
-      std::cerr << "Run: .plugin remove " << match->name << " (or delete the folder) and try again."
-                << std::endl;
-      return true;
-    }
-
-    if (std::filesystem::exists(plugin_root / ".git")) {
-      std::cout << "Step 1/2: Updating source..." << std::endl;
-      std::string pull_cmd = "git -C \"" + plugin_root.string() + "\" pull --ff-only";
-      if (run_command(pull_cmd, verbose, git_log) != 0) {
-        std::cerr << "Error: git pull failed for " << match->name << std::endl;
-        if (!verbose && std::filesystem::exists(git_log)) {
-          std::ifstream in(git_log);
-          std::cerr << "Details:\n" << in.rdbuf() << std::endl;
-        }
+    if (!use_local_source) {
+      if (std::filesystem::exists(plugin_root) && !std::filesystem::exists(plugin_root / ".git")) {
+        std::cerr << "Error: plugin source already exists but is not a git repo: "
+                  << plugin_root << std::endl;
+        std::cerr << "Run: .plugin remove " << match->name << " (or delete the folder) and try again."
+                  << std::endl;
         return true;
+      }
+
+      if (std::filesystem::exists(plugin_root / ".git")) {
+        std::cout << "Step 1/2: Updating source..." << std::endl;
+        std::string pull_cmd = "git -C \"" + plugin_root.string() + "\" pull --ff-only";
+        if (run_command(pull_cmd, verbose, git_log) != 0) {
+          std::cerr << "Error: git pull failed for " << match->name << std::endl;
+          if (!verbose && std::filesystem::exists(git_log)) {
+            std::ifstream in(git_log);
+            std::cerr << "Details:\n" << in.rdbuf() << std::endl;
+          }
+          return true;
+        }
+      } else {
+        std::cout << "Step 1/2: Cloning source..." << std::endl;
+        std::filesystem::create_directories(plugin_root.parent_path());
+        std::string clone_cmd =
+            "git clone \"" + match->repo + "\" \"" + plugin_root.string() + "\"";
+        if (run_command(clone_cmd, verbose, git_log) != 0) {
+          std::cerr << "Error: git clone failed for " << match->name << std::endl;
+          if (!verbose && std::filesystem::exists(git_log)) {
+            std::ifstream in(git_log);
+            std::cerr << "Details:\n" << in.rdbuf() << std::endl;
+          }
+          return true;
+        }
       }
     } else {
-      std::cout << "Step 1/2: Cloning source..." << std::endl;
-      std::filesystem::create_directories(plugin_root.parent_path());
-      std::string clone_cmd =
-          "git clone \"" + match->repo + "\" \"" + plugin_root.string() + "\"";
-      if (run_command(clone_cmd, verbose, git_log) != 0) {
-        std::cerr << "Error: git clone failed for " << match->name << std::endl;
-        if (!verbose && std::filesystem::exists(git_log)) {
-          std::ifstream in(git_log);
-          std::cerr << "Details:\n" << in.rdbuf() << std::endl;
-        }
+      if (!std::filesystem::exists(source_root)) {
+        std::cerr << "Error: local plugin source not found: " << source_root << std::endl;
         return true;
       }
+      std::cout << "Step 1/2: Using local source..." << std::endl;
     }
 
     std::cout << "Step 2/2: Building plugin..." << std::endl;

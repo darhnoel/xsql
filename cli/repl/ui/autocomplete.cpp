@@ -22,6 +22,10 @@ AutoCompleter::AutoCompleter() {
       ".plugin", ".quit", ".q",
       ":help", ":load", ":quit", ":exit"
   };
+#ifdef XSQL_ENABLE_KHMER_NUMBER
+  commands_.push_back(".number_to_khmer");
+  commands_.push_back(".khmer_to_number");
+#endif
 }
 
 bool AutoCompleter::complete(std::string& buffer,

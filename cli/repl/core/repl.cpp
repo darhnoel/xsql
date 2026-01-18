@@ -101,6 +101,14 @@ int run_repl(ReplConfig& config) {
       }
       continue;
     }
+#ifndef XSQL_ENABLE_KHMER_NUMBER
+    if (line.rfind(".number_to_khmer", 0) == 0 || line.rfind(".khmer_to_number", 0) == 0) {
+      std::cerr << "Khmer number module not enabled. "
+                   "Run: .plugin install number_to_khmer (then .plugin load number_to_khmer)"
+                << std::endl;
+      continue;
+    }
+#endif
     if (line.empty()) {
       continue;
     }
