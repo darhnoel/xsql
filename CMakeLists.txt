@@ -8,6 +8,7 @@ option(XSQL_WITH_LIBXML2 "Use libxml2 for HTML parsing" ON)
 option(XSQL_WITH_NLOHMANN_JSON "Use nlohmann/json for CLI output" ON)
 option(XSQL_WITH_CURL "Use libcurl for URL fetching" ON)
 option(XSQL_WITH_ARROW "Enable Apache Arrow for Parquet export" ON)
+option(XSQL_ENABLE_KHMER_NUMBER "Enable built-in Khmer number module" ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -44,6 +45,11 @@ target_include_directories(xsql_core
 )
 
 target_compile_features(xsql_core PUBLIC cxx_std_20)
+
+if (XSQL_ENABLE_KHMER_NUMBER)
+  target_sources(xsql_core PRIVATE core/src/khmer_number.cpp)
+  target_compile_definitions(xsql_core PUBLIC XSQL_ENABLE_KHMER_NUMBER)
+endif()
 
 if (XSQL_WITH_LIBXML2)
   find_package(LibXml2)
@@ -119,11 +125,13 @@ if (XSQL_BUILD_CLI)
     cli/repl/ui/render.cpp
     cli/repl/input/text_util.cpp
     cli/repl/core/repl.cpp
+    cli/repl/config.cpp
     cli/repl/commands/registry.cpp
     cli/repl/commands/help_command.cpp
     cli/repl/commands/display_mode_command.cpp
     cli/repl/commands/mode_command.cpp
     cli/repl/commands/max_rows_command.cpp
+    cli/repl/commands/reload_config_command.cpp
     cli/repl/commands/summarize_command.cpp
     cli/repl/commands/load_command.cpp
     cli/repl/commands/plugin_command.cpp
@@ -135,6 +143,9 @@ if (XSQL_BUILD_CLI)
     cli/export/export_sinks.cpp
     cli/render/duckbox_renderer.cpp
   )
+  if (XSQL_ENABLE_KHMER_NUMBER)
+    target_sources(xsql PRIVATE cli/repl/commands/khmer_number_command.cpp)
+  endif()
   target_link_libraries(xsql PRIVATE xsql_core)
   target_include_directories(xsql PRIVATE core/src core/include cli)
   if (UNIX AND NOT APPLE)
@@ -175,6 +186,8 @@ if (XSQL_BUILD_TESTS)
     tests/test_repl.cpp
     tests/test_fragments.cpp
     tests/test_guardrails.cpp
+    tests/test_meta_commands.cpp
+    tests/test_cli_utils.cpp
     cli/repl/core/line_editor.cpp
     cli/repl/ui/autocomplete.cpp
     cli/repl/state/history.cpp
@@ -182,11 +195,13 @@ if (XSQL_BUILD_TESTS)
     cli/repl/ui/render.cpp
     cli/repl/input/text_util.cpp
     cli/repl/plugin_manager.cpp
+    cli/repl/config.cpp
     cli/repl/commands/registry.cpp
     cli/repl/commands/help_command.cpp
     cli/repl/commands/display_mode_command.cpp
     cli/repl/commands/mode_command.cpp
     cli/repl/commands/max_rows_command.cpp
+    cli/repl/commands/reload_config_command.cpp
     cli/repl/commands/summarize_command.cpp
     cli/repl/commands/load_command.cpp
     cli/repl/commands/plugin_command.cpp
@@ -198,6 +213,12 @@ if (XSQL_BUILD_TESTS)
     cli/export/export_sinks.cpp
     cli/render/duckbox_renderer.cpp
   )
+  if (XSQL_ENABLE_KHMER_NUMBER)
+    target_sources(xsql_tests PRIVATE
+      cli/repl/commands/khmer_number_command.cpp
+      tests/test_khmer_number.cpp
+    )
+  endif()
   target_link_libraries(xsql_tests PRIVATE xsql_core)
   target_include_directories(xsql_tests PRIVATE cli core/src core/include tests)
   if (XSQL_ARROW_TARGET AND XSQL_PARQUET_TARGET)
@@ -279,7 +300,30 @@ if (XSQL_BUILD_TESTS)
     summarize_content_basic
     summarize_content_khmer_requires_plugin
     summarize_content_max_tokens
+    parse_show_describe
+    execute_describe_doc
+    show_functions_output
+    describe_language_output
+    show_input_requires_source
+    show_inputs_requires_source
+    show_inputs_fallback_source
+    auto_include_source_uri
+    count_table_rows_header
+    count_table_rows_no_header
+    count_result_rows
   )
+  if (XSQL_ENABLE_KHMER_NUMBER)
+    list(APPEND XSQL_TESTS
+      khmer_number_digits
+      khmer_number_scale_boundaries
+      khmer_number_decimals_negatives
+      khmer_number_concatenated_input
+      khmer_number_round_trip_random
+      khmer_number_golden_vectors
+      khmer_number_command_to_words
+      khmer_number_command_compact
+    )
+  endif()
   if (XSQL_ARROW_TARGET AND XSQL_PARQUET_TARGET)
     list(APPEND XSQL_TESTS parquet_export_smoke)
   endif()

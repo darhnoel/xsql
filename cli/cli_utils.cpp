@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "query_parser.h"
 #include "render/duckbox_renderer.h"
@@ -390,18 +391,35 @@ std::string rewrite_from_path_if_needed(const std::string& query) {
 }
 
 std::string sanitize_pasted_line(std::string line) {
-  const std::string prompt = "xsql> ";
-  size_t pos = line.rfind(prompt);
-  if (pos != std::string::npos) {
-    line = line.substr(pos + prompt.size());
+  std::string cleaned;
+  size_t start = 0;
+  while (start <= line.size()) {
+    size_t end = line.find('\n', start);
+    std::string chunk = (end == std::string::npos)
+                            ? line.substr(start)
+                            : line.substr(start, end - start);
+    if (!chunk.empty() && chunk.back() == '\r') {
+      chunk.pop_back();
+    }
+    if (chunk.rfind("xsql> ", 0) == 0) {
+      chunk = chunk.substr(6);
+    } else if (chunk.rfind("> ", 0) == 0) {
+      chunk = chunk.substr(2);
+    }
+    cleaned += chunk;
+    if (end == std::string::npos) {
+      break;
+    }
+    cleaned.push_back('\n');
+    start = end + 1;
   }
-  while (!line.empty() && std::isspace(static_cast<unsigned char>(line.front()))) {
-    line.erase(line.begin());
+  while (!cleaned.empty() && std::isspace(static_cast<unsigned char>(cleaned.front()))) {
+    cleaned.erase(cleaned.begin());
   }
-  while (!line.empty() && std::isspace(static_cast<unsigned char>(line.back()))) {
-    line.pop_back();
+  while (!cleaned.empty() && std::isspace(static_cast<unsigned char>(cleaned.back()))) {
+    cleaned.pop_back();
   }
-  return line;
+  return cleaned;
 }
 
 std::optional<QuerySource> parse_query_source(const std::string& query) {
@@ -411,6 +429,8 @@ std::optional<QuerySource> parse_query_source(const std::string& query) {
   QuerySource source;
   source.kind = parsed.query->source.kind;
   source.value = parsed.query->source.value;
+  source.alias = parsed.query->source.alias;
+  source.statement_kind = parsed.query->kind;
   if (source.kind == xsql::Source::Kind::RawHtml) {
     source.needs_input = false;
   } else if (source.kind == xsql::Source::Kind::Fragments) {
@@ -419,12 +439,89 @@ std::optional<QuerySource> parse_query_source(const std::string& query) {
   return source;
 }
 
+std::vector<std::string> collect_source_uris(const xsql::QueryResult& result) {
+  std::vector<std::string> sources;
+  std::unordered_set<std::string> seen;
+  for (const auto& row : result.rows) {
+    if (seen.insert(row.source_uri).second) {
+      sources.push_back(row.source_uri);
+    }
+  }
+  return sources;
+}
+
+void apply_source_uri_policy(xsql::QueryResult& result, const std::vector<std::string>& sources) {
+  if (!result.columns_implicit || result.source_uri_excluded) {
+    return;
+  }
+  if (result.to_list || result.to_table) {
+    return;
+  }
+  if (sources.size() <= 1) {
+    return;
+  }
+  if (std::find(result.columns.begin(), result.columns.end(), "source_uri") != result.columns.end()) {
+    return;
+  }
+  result.columns.insert(result.columns.begin(), "source_uri");
+}
+
+size_t count_table_rows(const xsql::QueryResult::TableResult& table, bool has_header) {
+  if (table.rows.empty()) {
+    return 0;
+  }
+  if (!has_header) {
+    return table.rows.size();
+  }
+  return table.rows.size() > 0 ? table.rows.size() - 1 : 0;
+}
+
+size_t count_result_rows(const xsql::QueryResult& result) {
+  return result.rows.size();
+}
+
+bool build_show_input_result(const std::string& source_uri,
+                             xsql::QueryResult& out,
+                             std::string& error) {
+  if (source_uri.empty()) {
+    error = "No input loaded. Use .load <path|url> or --input <path|url>.";
+    return false;
+  }
+  out.columns = {"key", "value"};
+  xsql::QueryResultRow row;
+  row.attributes["key"] = "source_uri";
+  row.attributes["value"] = source_uri;
+  out.rows.push_back(std::move(row));
+  return true;
+}
+
+bool build_show_inputs_result(const std::vector<std::string>& sources,
+                              const std::string& fallback_source,
+                              xsql::QueryResult& out,
+                              std::string& error) {
+  std::vector<std::string> effective = sources;
+  if (effective.empty() && !fallback_source.empty()) {
+    effective.push_back(fallback_source);
+  }
+  if (effective.empty()) {
+    error = "No input loaded. Use .load <path|url> or --input <path|url>.";
+    return false;
+  }
+  out.columns = {"source_uri"};
+  for (const auto& source : effective) {
+    xsql::QueryResultRow row;
+    row.source_uri = source;
+    out.rows.push_back(std::move(row));
+  }
+  return true;
+}
+
 std::string build_json(const xsql::QueryResult& result) {
 #ifdef XSQL_USE_NLOHMANN_JSON
   using nlohmann::json;
   std::vector<std::string> columns = result.columns;
   if (columns.empty()) {
-    columns = {"node_id", "tag", "attributes", "parent_id", "source_uri"};
+    columns = {"node_id", "tag", "attributes", "parent_id"};
   }
   json out = json::array();
   for (const auto& row : result.rows) {
@@ -467,7 +564,7 @@ std::string build_json(const xsql::QueryResult& result) {
 #else
   std::vector<std::string> columns = result.columns;
   if (columns.empty()) {
-    columns = {"node_id", "tag", "attributes", "parent_id", "source_uri"};
+    columns = {"node_id", "tag", "attributes", "parent_id"};
   }
   std::ostringstream oss;
   oss << "[";

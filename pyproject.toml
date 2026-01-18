@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyxsql"
-version = "1.2.0"
+version = "1.3.1"
 description = "SQL-style querying for static HTML with a deterministic node model."
 readme = "README.md"
 requires-python = ">=3.9"

@@ -1,8 +1,8 @@
-# XSQL Documentation (v1.2.1)
+# XSQL Documentation (v1.3.1)
 
 XSQL is a SQL-style query language for static HTML. It treats each HTML element
 as a row in a node table and lets you filter by tag, attributes, and position.
-The project is now at v1.2.0 as an offline-first C++20 tool.
+The project is now at v1.3.1 as an offline-first C++20 tool.
 
 ## Quick Start
 
@@ -13,7 +13,7 @@ Build:
 
 Run on a file:
 ```
-./build/xsql --query "SELECT a FROM doc WHERE attributes.id = 'login'" --input ./data/index.html
+./build/xsql --query "SELECT a FROM doc WHERE id = 'login'" --input ./data/index.html
 ```
 
 Interactive mode:
@@ -26,12 +26,21 @@ Interactive mode:
 ```python
 import xsql
 
-doc = xsql.load("data/index.html")
-print(xsql.summarize(doc))
-rows = xsql.execute("SELECT a FROM document WHERE attributes.href IS NOT NULL")
+# Load local HTML file and execute query
+doc = xsql.load("data/test.html")
+result1 = xsql.execute("SELECT a.href FROM document WHERE href CONTAINS ANY ('http', 'https')")
 
+print("result1:")
+for row in result1.rows:
+    print(row.get('href'))
+
+# Load remote HTML file with network access and execute query
 doc = xsql.load("https://example.com", allow_network=True)
-rows = xsql.execute("SELECT title FROM document")
+result2 = xsql.execute("SELECT p FROM doc")
+
+print("result2:")
+for row in result2.rows:
+    print(row)
 ```
 
 Install:
@@ -110,6 +119,7 @@ Notes:
 - `--input` is required unless reading HTML from stdin.
 - Colors are auto-disabled when stdout is not a TTY.
 - Default output mode is `duckbox` (table-style).
+- Duckbox output prints a footer row count.
 - `--highlight` only affects duckbox headers (auto-disabled when not a TTY).
 - `--display_mode more` disables JSON truncation in non-interactive mode.
 - `TO CSV()` / `TO PARQUET()` write files instead of printing results.
@@ -118,17 +128,63 @@ Notes:
 
 Commands:
 - `.help`: show help
-- `.load <path|url>` / `:load <path|url>`: load input (path or URL)
+- `.load <path|url> [--alias <name>]` / `:load <path|url> [--alias <name>]`: load input (path or URL)
 - `.mode duckbox|json|plain`: set output mode
 - `.display_mode more|less`: control JSON truncation
 - `.max_rows <n|inf>`: set duckbox max rows (`inf` = unlimited)
-- `.summarize [doc|path|url]`: list all tags and counts for the active input or target
+- `.reload_config`: reload REPL config from disk
+- `.summarize [doc|alias|path|url]`: list all tags and counts for the active input or target
 - `.quit` / `.q` / `:quit` / `:exit`: exit the REPL
 
 Keys:
 - Up/Down: history (max 5 entries)
 - Left/Right: move cursor
 - Ctrl+L: clear screen
+
+Tip:
+- Use `.load --alias doc1` to register multiple sources and query them via `FROM doc1`.
+
+## Khmer Number Module (Optional)
+
+Install the plugin (REPL):
+```
+.plugin install number_to_khmer
+.plugin load number_to_khmer
+```
+
+Enable at build time (built-in commands):
+```
+cmake -S . -B build -DXSQL_ENABLE_KHMER_NUMBER=ON
+cmake --build build
+```
+
+REPL commands:
+- `.number_to_khmer <number> [--compact] [--khmer-digits]`
+- `.khmer_to_number <khmer_text> [--khmer-digits]`
+
+Example:
+```
+xsql> .number_to_khmer 12.30
+ដប់-ពីរ-ក្បៀស-បី-សូន្យ
+xsql> .number_to_khmer --compact 12.30
+ដប់ពីរក្បៀសបីសូន្យ
+xsql> .number_to_khmer --khmer-digits 12.30
+១២.៣០
+xsql> .khmer_to_number ដក-មួយ-រយ-ក្បៀស-ប្រាំ-សូន្យ
+-100.50
+xsql> .khmer_to_number --khmer-digits ដប់-ពីរ
+១២
+```
+
+Formatting rules:
+- Tokens are joined with `-` (the parser also accepts whitespace).
+- Reverse parsing also accepts concatenated Khmer number words without separators.
+- Decimal marker token: `ក្បៀស`
+- Negative marker token: `ដក`
+- Integer zeros are omitted unless the entire integer part is zero (`សូន្យ`).
+- Decimal digits are emitted one-by-one and preserved (including trailing zeros).
+- `--khmer-digits` outputs Khmer digits (0-9 => ០-៩) with `.` as the decimal point.
+- Scales are defined up to 10^36; the module is CLI-only for now.
 
 ## Playwright Fetch Plugin (Experimental)
 
@@ -171,6 +227,24 @@ Environment overrides:
 - `XSQL_NODE` to select the Node.js binary.
 - `XSQL_PLAYWRIGHT_FETCH_SCRIPT` to point to a custom `fetch.js`.
 
+## REPL Config (TOML)
+
+The REPL reads a TOML config file at `$XDG_CONFIG_HOME/xsql/config.toml`
+or `~/.config/xsql/config.toml`. Reload it with `.reload_config`.
+
+Example:
+```toml
+[repl]
+output_mode = "duckbox"
+display_mode = "more"
+max_rows = 40
+highlight = true
+
+[repl.history]
+max_entries = 500
+path = "~/.local/state/xsql/history"
+```
+
 ## Data Model
 
 Each HTML element becomes a row with fields:
@@ -181,7 +255,38 @@ Each HTML element becomes a row with fields:
 - `sibling_pos` (int64, 1-based position among siblings)
 - `source_uri` (string)
 
+Notes:
+- `source_uri` is stored for provenance but hidden from default output unless multiple sources appear.
+
 ## Query Language
+
+## Syntax Diagrams
+
+Railroad diagrams are auto-generated for the current parser. Rebuild with
+`python3 docs/generate_diagrams.py` after installing `docs/requirements.txt`.
+
+Query shape:
+![query](docs/diagrams/query.svg)
+
+Select queries:
+![select_query](docs/diagrams/select_query.svg)
+
+Select items:
+![select_item](docs/diagrams/select_item.svg)
+
+Sources:
+![source](docs/diagrams/source.svg)
+
+Where expressions:
+![expr](docs/diagrams/expr.svg)
+
+Output clauses:
+![to_clause](docs/diagrams/to_clause.svg)
+
+Notes:
+- Tag-only selections cannot mix with projected fields.
+- Shorthand attributes (e.g., `href = '...'`) are parsed as `attributes.href`.
+- Semicolon is optional, but the REPL requires it to end a statement on a single line.
 
 ### Basic Form
 ```
@@ -196,7 +301,7 @@ FROM 'path.html'
 FROM 'https://example.com'   (URL fetching requires libcurl)
 FROM RAW('<div class="card"></div>')
 FROM FRAGMENTS(RAW('<ul><li>1</li><li>2</li></ul>')) AS frag
-FROM FRAGMENTS(SELECT inner_html(div) FROM doc WHERE attributes.class = 'pagination') AS frag
+FROM FRAGMENTS(SELECT inner_html(div) FROM doc WHERE class = 'pagination') AS frag
 FROM doc                     (alias for document)
 FROM document AS doc
 ```
@@ -206,6 +311,23 @@ Notes:
 - `FRAGMENTS(...)` builds a temporary document by concatenating HTML fragments.
 - `FRAGMENTS` accepts either `RAW('<html>')` or a subquery returning a single HTML string column (use `inner_html(...)`).
 - `FRAGMENTS` subqueries cannot use file or URL sources.
+
+### Meta Queries
+```
+SHOW INPUT;
+SHOW INPUTS;
+SHOW FUNCTIONS;
+SHOW AXES;
+SHOW OPERATORS;
+DESCRIBE doc;
+DESCRIBE language;
+```
+
+Notes:
+- `SHOW INPUT` reports the active source.
+- `SHOW INPUTS` lists distinct sources from the last result (or the active source if none).
+- `DESCRIBE doc` shows the base schema; axes are documented via `SHOW AXES`.
+- `DESCRIBE language` lists the SQL language surface as a single table.
 
 ### Tags
 ```
@@ -220,6 +342,14 @@ SELECT * EXCLUDE source_uri FROM doc
 SELECT * EXCLUDE (source_uri, tag) FROM doc
 ```
 
+### Axes (Relationship Selectors)
+```
+parent
+child
+ancestor
+descendant
+```
+
 ### WHERE Expressions
 Supported operators:
 - `=`
@@ -231,14 +361,14 @@ Supported operators:
 - `HAS_DIRECT_TEXT` (case-insensitive substring match on direct text)
 - `AND`, `OR`
 
-Attribute references:
+Attribute references (shorthand):
 ```
-attributes.id = 'main'
-parent.attributes.class = 'menu'
-child.attributes.href <> ''
-ancestor.attributes.id = 'root'
-descendant.attributes.class IN ('nav','top')
-attributes.href CONTAINS 'example'
+id = 'main'
+parent.class = 'menu'
+child.href <> ''
+ancestor.id = 'root'
+descendant.class IN ('nav','top')
+href CONTAINS 'example'
 ```
 
 Field references:
@@ -252,16 +382,22 @@ div HAS_DIRECT_TEXT 'login'
 sibling_pos = 2
 ```
 
-Shorthand attribute filters:
+Shorthand attribute filters (default):
 ```
 title = "Menu"
 doc.title = "Menu"
 ```
 
+Longhand attribute filters (optional for clarity):
+```
+attributes.title = "Menu"
+doc.attributes.title = "Menu"
+```
+
 ### Aliases
 Alias the source and qualify attribute filters:
 ```
-SELECT a FROM document AS d WHERE d.attributes.id = 'login'
+SELECT a FROM document AS d WHERE d.id = 'login'
 ```
 
 ### Projections
@@ -292,7 +428,7 @@ Notes:
 ### TO LIST()
 Output a JSON list for a single projected column:
 ```
-SELECT link.href FROM doc WHERE attributes.rel = "preload" TO LIST()
+SELECT link.href FROM doc WHERE rel = "preload" TO LIST()
 ```
 
 ### TO TABLE()
@@ -302,7 +438,7 @@ all rows as data (CSV exports will include generated `col1..colN` headers):
 ```
 SELECT table FROM doc TO TABLE()
 SELECT table FROM doc TO TABLE(HEADER=OFF)
-SELECT table FROM doc WHERE attributes.id = 'stats' TO TABLE(EXPORT='stats.csv')
+SELECT table FROM doc WHERE id = 'stats' TO TABLE(EXPORT='stats.csv')
 ```
 
 If multiple tables match, the output is a list of objects:
@@ -316,7 +452,7 @@ Note: `TO LIST()` always returns JSON output. `TO TABLE()` uses duckbox by defau
 ### TO CSV()
 Write any rectangular result to a CSV file:
 ```
-SELECT a.href, a.text FROM doc WHERE attributes.href IS NOT NULL TO CSV('links.csv')
+SELECT a.href, a.text FROM doc WHERE href IS NOT NULL TO CSV('links.csv')
 ```
 
 ### TO PARQUET()
@@ -339,21 +475,21 @@ Minimal aggregate:
 ```
 SELECT COUNT(a) FROM doc
 SELECT COUNT(*) FROM doc
-SELECT COUNT(link) FROM doc WHERE attributes.rel = "preload"
+SELECT COUNT(link) FROM doc WHERE rel = "preload"
 ```
 
 ### Regex
 Use `~` with ECMAScript regex:
 ```
-SELECT a FROM doc WHERE attributes.href ~ '.*\\.pdf$'
+SELECT a FROM doc WHERE href ~ '.*\\.pdf$'
 ```
 
 ### Contains (attributes)
 Case-insensitive substring match for attribute values:
 ```
-SELECT a FROM doc WHERE attributes.href CONTAINS 'techkhmer'
-SELECT a FROM doc WHERE attributes.href CONTAINS ALL ('https', '.html')
-SELECT a FROM doc WHERE attributes.href CONTAINS ANY ('https', 'mailto')
+SELECT a FROM doc WHERE href CONTAINS 'techkhmer'
+SELECT a FROM doc WHERE href CONTAINS ALL ('https', '.html')
+SELECT a FROM doc WHERE href CONTAINS ANY ('https', 'mailto')
 ```
 
 ### Direct Text
@@ -367,7 +503,7 @@ Compute per-node TF-IDF scores across the matched nodes. Each matched node is
 treated as a document in the IDF corpus.
 ```
 SELECT TFIDF(p, li, TOP_TERMS=30, MIN_DF=1, MAX_DF=0, STOPWORDS=ENGLISH)
-  FROM doc WHERE attributes.class = 'article'
+  FROM doc WHERE class = 'article'
 ```
 
 Output columns: `node_id`, `parent_id`, `tag`, `terms_score` (term → score map).
@@ -387,20 +523,20 @@ Notes:
 
 ```
 -- Filters
-SELECT ul FROM doc WHERE attributes.id = 'countries';
-SELECT table FROM doc WHERE parent.attributes.id = 'table-01';
-SELECT div FROM doc WHERE descendant.attributes.class = 'card';
+SELECT ul FROM doc WHERE id = 'countries';
+SELECT table FROM doc WHERE parent.id = 'table-01';
+SELECT div FROM doc WHERE descendant.class = 'card';
 SELECT span FROM doc WHERE parent_id = 1;
 SELECT span FROM doc WHERE node_id = 1;
 SELECT div FROM doc WHERE attributes IS NULL;
 
 -- Lists and exports
-SELECT link.href FROM doc WHERE attributes.rel = "preload" TO LIST();
-SELECT a.href, a.text FROM doc WHERE attributes.href IS NOT NULL TO CSV('links.csv');
+SELECT link.href FROM doc WHERE rel = "preload" TO LIST();
+SELECT a.href, a.text FROM doc WHERE href IS NOT NULL TO CSV('links.csv');
 SELECT * FROM doc TO PARQUET('nodes.parquet');
 
 -- Fragments
-SELECT li FROM FRAGMENTS(SELECT inner_html(ul) FROM doc WHERE attributes.id = 'menu') AS frag;
+SELECT li FROM FRAGMENTS(SELECT inner_html(ul) FROM doc WHERE id = 'menu') AS frag;
 
 -- Ordering
 SELECT div FROM doc ORDER BY node_id DESC;

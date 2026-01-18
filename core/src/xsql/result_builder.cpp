@@ -5,20 +5,6 @@
 
 namespace xsql::xsql_internal {
 
-namespace {
-
-/// Checks whether the query projects fields or aggregates.
-/// MUST return false for tag-only selections.
-/// Inputs are Query objects; outputs are boolean with no side effects.
-bool is_projection_query(const Query& query) {
-  for (const auto& item : query.select_items) {
-    if (item.field.has_value() || item.aggregate != Query::SelectItem::Aggregate::None) return true;
-  }
-  return false;
-}
-
-}  // namespace
-
 /// Builds column names for the result set based on query semantics.
 /// MUST enforce EXCLUDE rules and MUST preserve deterministic ordering.
 /// Inputs are Query objects; outputs are column name vectors.
@@ -35,7 +21,7 @@ std::vector<std::string> build_columns(const Query& query) {
     }
   }
   if (!is_projection_query(query)) {
-    std::vector<std::string> cols = {"node_id", "tag", "attributes", "parent_id", "source_uri"};
+    std::vector<std::string> cols = {"node_id", "tag", "attributes", "parent_id"};
     if (!query.exclude_fields.empty()) {
       std::vector<std::string> out;
       out.reserve(cols.size());

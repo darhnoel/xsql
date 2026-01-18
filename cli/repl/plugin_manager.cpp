@@ -88,12 +88,13 @@ bool PluginManager::register_command(void* host_context,
   std::string prefix = "." + command_name;
   ctx->manager->registry_.add([prefix, fn, user_data, plugin_name, manager = ctx->manager](
                                   const std::string& line,
-                                  CommandContext&) -> bool {
+                                  CommandContext& ctx) -> bool {
     if (line.rfind(prefix, 0) != 0) {
       return false;
     }
     if (!plugin_name.empty() && !manager->is_loaded(plugin_name)) {
       std::cerr << "Error: plugin not loaded: " << plugin_name << std::endl;
+      ctx.editor.reset_render_state();
       return true;
     }
     char err[256] = {0};
@@ -101,6 +102,7 @@ bool PluginManager::register_command(void* host_context,
     if (!ok && err[0]) {
       std::cerr << "Error: " << err << std::endl;
     }
+    ctx.editor.reset_render_state();
     return true;
   });
   ctx->manager->command_info_.push_back(

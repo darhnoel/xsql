@@ -1,0 +1,19 @@
+<svg class="railroad-diagram" height="122" viewBox="0 0 326.0 122" width="326.0" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<style>
+.railroad-diagram path { stroke: #333; stroke-width: 2; fill: none; }
+.railroad-diagram text { fill: #111; font: 14px monospace; text-anchor: middle; }
+.railroad-diagram rect { fill: #fdfdfd; stroke: #333; }
+.railroad-diagram .terminal rect { fill: #e8f2ea; }
+.railroad-diagram .non-terminal rect { fill: #f2f2f2; }
+</style>
+<rect width="100%" height="100%" fill="white" />
+
+<g transform="translate(.5 .5)">
+<g>
+<path d="M20 21v20m10 -20v20m-10 -10h20" /></g><path d="M40 31h10" /><g>
+<path d="M50 31h0.0" /><path d="M276.0 31h0.0" /><g class="terminal ">
+<path d="M50.0 31h0.0" /><path d="M138.0 31h0.0" /><rect height="22" rx="10" ry="10" width="88" x="50" y="20"></rect><text x="94" y="35">DESCRIBE</text></g><path d="M138.0 31h10" /><g>
+<path d="M148.0 31h0.0" /><path d="M276.0 31h0.0" /><path d="M148.0 31h20" /><g class="terminal ">
+<path d="M168.0 31h21.25" /><path d="M234.75 31h21.25" /><rect height="22" rx="10" ry="10" width="45.5" x="189.25" y="20"></rect><text x="212" y="35">DOC</text></g><path d="M256.0 31h20" /><path d="M148.0 31a10 10 0 0 1 10 10v10a10 10 0 0 0 10 10" /><g class="terminal ">
+<path d="M168.0 61h0.0" /><path d="M256.0 61h0.0" /><rect height="22" rx="10" ry="10" width="88" x="168" y="50"></rect><text x="212" y="65">DOCUMENT</text></g><path d="M256.0 61a10 10 0 0 0 10 -10v-10a10 10 0 0 1 10 -10" /><path d="M148.0 31a10 10 0 0 1 10 10v40a10 10 0 0 0 10 10" /><g class="terminal ">
+<path d="M168.0 91h0.0" /><path d="M256.0 91h0.0" /><rect height="22" rx="10" ry="10" width="88" x="168" y="80"></rect><text x="212" y="95">LANGUAGE</text></g><path d="M256.0 91a10 10 0 0 0 10 -10v-40a10 10 0 0 1 10 -10" /></g></g><path d="M276.0 31h10" /><path d="M 286.0 31 h 20 m -10 -10 v 20 m 10 -20 v 20"></path></g></svg>

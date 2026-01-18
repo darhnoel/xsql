@@ -49,6 +49,10 @@ class LineEditor {
   /// MUST avoid duplicate consecutive entries to reduce noise.
   /// Inputs are line text; side effects are history mutations.
   void add_history(const std::string& line);
+  /// Updates the maximum history length.
+  void set_history_size(size_t max_entries);
+  /// Enables history persistence at the given path.
+  bool set_history_path(const std::string& path, std::string& error);
 
  private:
   /// Repaints the input buffer and moves the cursor to the correct position.

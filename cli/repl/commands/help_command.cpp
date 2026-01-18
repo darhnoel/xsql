@@ -11,19 +11,26 @@ CommandHandler make_help_command() {
     }
     std::cout << "Commands:\n";
     std::cout << "  .help                 Show this help\n";
-    std::cout << "  .load <path|url>       Load input (or :load)\n";
+    std::cout << "  .load <path|url> [--alias <name>]  Load input (or :load)\n";
     std::cout << "  .mode duckbox|json|plain  Set output mode\n";
     std::cout << "  .display_mode more|less   Control truncation\n";
     std::cout << "  .max_rows <n|inf>        Set duckbox max rows (inf = no limit)\n";
-    std::cout << "  .summarize [doc|path|url]  Show tag counts\n";
+    std::cout << "  .reload_config           Reload REPL config\n";
+#ifdef XSQL_ENABLE_KHMER_NUMBER
+    std::cout << "  .number_to_khmer <number> [--compact] [--khmer-digits]   Convert number to Khmer words or numerals\n";
+    std::cout << "  .khmer_to_number <text> [--khmer-digits]   Convert Khmer words to number\n";
+#endif
+    std::cout << "  .summarize [doc|alias|path|url]  Show tag counts\n";
     std::cout << "  .plugin list\n"
                  "  .plugin load <name|path>\n"
                  "  .plugin unload <name>\n"
                  "  .plugin install <name> [--verbose]\n"
                  "  .plugin remove <name>\n"
                  "    Manage plugins (load/install/remove/list)\n";
-    std::cout << "  .summarize_content [doc|path|url] [--lang <code>] [--max_tokens <n>]\n"
+    std::cout << "  .summarize_content [doc|alias|path|url] [--lang <code>] [--max_tokens <n>]\n"
                  "    Summarize text content\n";
+    std::cout << "  SHOW INPUT(S) / SHOW FUNCTIONS / SHOW AXES / SHOW OPERATORS\n"
+                 "  DESCRIBE DOC / DESCRIBE LANGUAGE\n";
     std::cout << "  Query export: TO CSV('file.csv') / TO PARQUET('file.parquet')\n";
     std::cout << "  .quit / .q             Exit\n";
     return true;

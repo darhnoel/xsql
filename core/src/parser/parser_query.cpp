@@ -6,6 +6,12 @@ namespace xsql {
 /// MUST parse SELECT/FROM and optional WHERE/ORDER/LIMIT/TO consistently.
 /// Inputs are token streams; outputs are Query objects or errors.
 bool Parser::parse_query_body(Query& q) {
+  if (current_.type == TokenType::KeywordShow) {
+    return parse_show(q);
+  }
+  if (current_.type == TokenType::KeywordDescribe) {
+    return parse_describe(q);
+  }
   if (!consume(TokenType::KeywordSelect, "Expected SELECT")) return false;
   if (!parse_select_list(q.select_items)) return false;
   if (current_.type == TokenType::KeywordExclude) {
@@ -162,6 +168,58 @@ bool Parser::parse_query_body(Query& q) {
     }
   }
   return true;
+}
+
+bool Parser::parse_show(Query& q) {
+  size_t start = current_.pos;
+  advance();
+  if (current_.type == TokenType::KeywordInput) {
+    q.kind = Query::Kind::ShowInput;
+    advance();
+  } else if (current_.type == TokenType::KeywordInputs) {
+    q.kind = Query::Kind::ShowInputs;
+    advance();
+  } else if (current_.type == TokenType::KeywordFunctions) {
+    q.kind = Query::Kind::ShowFunctions;
+    advance();
+  } else if (current_.type == TokenType::KeywordAxes) {
+    q.kind = Query::Kind::ShowAxes;
+    advance();
+  } else if (current_.type == TokenType::KeywordOperators) {
+    q.kind = Query::Kind::ShowOperators;
+    advance();
+  } else {
+    return set_error("Expected INPUT, INPUTS, FUNCTIONS, AXES, or OPERATORS after SHOW");
+  }
+  q.span = Span{start, current_.pos};
+  return true;
+}
+
+bool Parser::parse_describe(Query& q) {
+  size_t start = current_.pos;
+  advance();
+  if (current_.type == TokenType::KeywordDocument) {
+    q.kind = Query::Kind::DescribeDoc;
+    advance();
+    q.span = Span{start, current_.pos};
+    return true;
+  }
+  if (current_.type == TokenType::Identifier) {
+    std::string target = to_lower(current_.text);
+    if (target == "doc" || target == "document") {
+      q.kind = Query::Kind::DescribeDoc;
+      advance();
+      q.span = Span{start, current_.pos};
+      return true;
+    }
+    if (target == "language") {
+      q.kind = Query::Kind::DescribeLanguage;
+      advance();
+      q.span = Span{start, current_.pos};
+      return true;
+    }
+  }
+  return set_error("Expected DOC, DOCUMENT, or LANGUAGE after DESCRIBE");
 }
 
 /// Parses the LIMIT value as a non-negative integer.

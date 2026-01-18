@@ -23,6 +23,8 @@ class Parser {
   bool parse_source(Source& src);
   bool parse_subquery(std::shared_ptr<Query>& out);
   bool parse_query_body(Query& q);
+  bool parse_show(Query& q);
+  bool parse_describe(Query& q);
   bool parse_source_alias(Source& src);
 
   bool parse_expr(Expr& out);

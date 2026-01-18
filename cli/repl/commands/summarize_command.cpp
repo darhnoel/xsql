@@ -22,29 +22,32 @@ CommandHandler make_summarize_command() {
     std::string target;
     iss >> cmd >> target;
     target = trim_semicolon(target);
-    bool use_active = target.empty() || target == "doc" || target == "document";
-    if (use_active) {
-      if (ctx.active_html.has_value()) {
-        target = ctx.active_source;
-      } else if (!ctx.active_source.empty()) {
-        try {
-          ctx.active_html = load_html_input(ctx.active_source, ctx.config.timeout_ms);
-        } catch (const std::exception& ex) {
-          if (ctx.config.color) std::cerr << kColor.red;
-          std::cerr << "Error: " << ex.what() << std::endl;
-          if (ctx.config.color) std::cerr << kColor.reset;
-          return true;
-        }
-        target = ctx.active_source;
-      } else {
-        std::cerr << "No input loaded. Use .load <path|url> or start with --input <path|url>." << std::endl;
-        return true;
-      }
+    bool use_alias = false;
+    std::string alias;
+    if (target.empty() || target == "doc" || target == "document") {
+      alias = ctx.active_alias;
+      use_alias = true;
+    } else if (ctx.sources.find(target) != ctx.sources.end()) {
+      alias = target;
+      use_alias = true;
     }
     try {
       std::string html;
-      if (use_active && ctx.active_html.has_value()) {
-        html = *ctx.active_html;
+      if (use_alias) {
+        auto it = ctx.sources.find(alias);
+        if (it == ctx.sources.end() || it->second.source.empty()) {
+          if (!alias.empty()) {
+            std::cerr << "No input loaded for alias '" << alias
+                      << "'. Use .load <path|url> --alias " << alias << "." << std::endl;
+          } else {
+            std::cerr << "No input loaded. Use .load <path|url> or start with --input <path|url>." << std::endl;
+          }
+          return true;
+        }
+        if (!it->second.html.has_value()) {
+          it->second.html = load_html_input(it->second.source, ctx.config.timeout_ms);
+        }
+        html = *it->second.html;
       } else {
         html = load_html_input(target, ctx.config.timeout_ms);
       }

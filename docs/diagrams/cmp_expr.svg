@@ -1,0 +1,22 @@
+<svg class="railroad-diagram" height="92" viewBox="0 0 415.5 92" width="415.5" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<style>
+.railroad-diagram path { stroke: #333; stroke-width: 2; fill: none; }
+.railroad-diagram text { fill: #111; font: 14px monospace; text-anchor: middle; }
+.railroad-diagram rect { fill: #fdfdfd; stroke: #333; }
+.railroad-diagram .terminal rect { fill: #e8f2ea; }
+.railroad-diagram .non-terminal rect { fill: #f2f2f2; }
+</style>
+<rect width="100%" height="100%" fill="white" />
+
+<g transform="translate(.5 .5)">
+<g>
+<path d="M20 21v20m10 -20v20m-10 -10h20" /></g><g>
+<path d="M40 31h0.0" /><path d="M375.5 31h0.0" /><path d="M40.0 31h20" /><g>
+<path d="M60.0 31h72.25" /><path d="M283.25 31h72.25" /><g class="terminal ">
+<path d="M132.25 31h0.0" /><path d="M160.75 31h0.0" /><rect height="22" rx="10" ry="10" width="28.5" x="132.25" y="20"></rect><text x="146.5" y="35">(</text></g><path d="M160.75 31h10" /><path d="M170.75 31h10" /><g class="non-terminal ">
+<path d="M180.75 31h0.0" /><path d="M234.75 31h0.0" /><rect height="22" width="54" x="180.75" y="20"></rect><text x="207.75" y="35">expr</text></g><path d="M234.75 31h10" /><path d="M244.75 31h10" /><g class="terminal ">
+<path d="M254.75 31h0.0" /><path d="M283.25 31h0.0" /><rect height="22" rx="10" ry="10" width="28.5" x="254.75" y="20"></rect><text x="269" y="35">)</text></g></g><path d="M355.5 31h20" /><path d="M40.0 31a10 10 0 0 1 10 10v10a10 10 0 0 0 10 10" /><g>
+<path d="M60.0 61h0.0" /><path d="M355.5 61h0.0" /><g class="non-terminal ">
+<path d="M60.0 61h0.0" /><path d="M139.5 61h0.0" /><rect height="22" width="79.5" x="60" y="50"></rect><text x="99.75" y="65">operand</text></g><path d="M139.5 61h10" /><path d="M149.5 61h10" /><g class="non-terminal ">
+<path d="M159.5 61h0.0" /><path d="M230.5 61h0.0" /><rect height="22" width="71" x="159.5" y="50"></rect><text x="195" y="65">cmp_op</text></g><path d="M230.5 61h10" /><path d="M240.5 61h10" /><g class="non-terminal ">
+<path d="M250.5 61h0.0" /><path d="M355.5 61h0.0" /><rect height="22" width="105" x="250.5" y="50"></rect><text x="303" y="65">value_list</text></g></g><path d="M355.5 61a10 10 0 0 0 10 -10v-10a10 10 0 0 1 10 -10" /></g><path d="M 375.5 31 h 20 m -10 -10 v 20 m 10 -20 v 20"></path></g></svg>

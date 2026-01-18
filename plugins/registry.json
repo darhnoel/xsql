@@ -4,5 +4,11 @@
     "repo": "https://github.com/Sovichea/khmer_segmenter.git",
     "cmake_subdir": "port/c",
     "artifact": "libkhmer_segmenter{ext}"
+  },
+  {
+    "name": "number_to_khmer",
+    "repo": "local",
+    "cmake_subdir": "plugins/cmake/number_to_khmer",
+    "artifact": "libnumber_to_khmer{ext}"
   }
 ]

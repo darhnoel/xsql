@@ -13,13 +13,19 @@ AutoCompleter::AutoCompleter() {
       "attributes", "tag", "text", "parent", "child", "ancestor", "descendant",
       "parent_id", "sibling_pos", "inner_html", "trim", "is", "null", "header", "noheader",
       "no_header", "on", "off", "export", "tfidf", "top_terms", "min_df", "max_df",
-      "stopwords", "english", "none", "default"
+      "stopwords", "english", "none", "default", "show", "describe", "input", "inputs",
+      "functions", "axes", "operators", "language"
   };
   commands_ = {
-      ".help", ".load", ".mode", ".display_mode", ".max_rows", ".summarize", ".summarize_content",
+      ".help", ".load", ".mode", ".display_mode", ".max_rows", ".reload_config",
+      ".summarize", ".summarize_content",
       ".plugin", ".quit", ".q",
       ":help", ":load", ":quit", ":exit"
   };
+#ifdef XSQL_ENABLE_KHMER_NUMBER
+  commands_.push_back(".number_to_khmer");
+  commands_.push_back(".khmer_to_number");
+#endif
 }
 
 bool AutoCompleter::complete(std::string& buffer,

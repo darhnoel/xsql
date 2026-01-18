@@ -3,6 +3,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "repl/core/repl.h"
@@ -15,8 +16,8 @@ class PluginManager;
 struct CommandContext {
   ReplConfig& config;
   LineEditor& editor;
-  std::string& active_source;
-  std::optional<std::string>& active_html;
+  std::unordered_map<std::string, LoadedSource>& sources;
+  std::string& active_alias;
   std::string& last_full_output;
   bool& display_full;
   size_t& max_rows;

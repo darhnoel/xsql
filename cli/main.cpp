@@ -72,23 +72,41 @@ int main(int argc, char** argv) {
     query = rewrite_from_path_if_needed(query);
     xsql::QueryResult result;
     auto source = parse_query_source(query);
-    if (source.has_value() && source->kind == xsql::Source::Kind::Url) {
-      result = xsql::execute_query_from_url(source->value, query, timeout_ms);
-    } else if (source.has_value() && source->kind == xsql::Source::Kind::Path) {
-      result = xsql::execute_query_from_file(source->value, query);
-    } else if (source.has_value() && source->kind == xsql::Source::Kind::RawHtml) {
-      result = xsql::execute_query_from_document("", query);
-    } else if (source.has_value() && source->kind == xsql::Source::Kind::Fragments && !source->needs_input) {
-      result = xsql::execute_query_from_document("", query);
-    } else if (input.empty() || input == "document") {
-      std::string html = read_stdin();
-      result = xsql::execute_query_from_document(html, query);
-    } else {
-      if (is_url(input)) {
-        result = xsql::execute_query_from_url(input, query, timeout_ms);
+    if (source.has_value() && source->statement_kind != xsql::Query::Kind::Select) {
+      std::string meta_error;
+      if (source->statement_kind == xsql::Query::Kind::ShowInput) {
+        if (!build_show_input_result(input, result, meta_error)) {
+          throw std::runtime_error(meta_error);
+        }
+      } else if (source->statement_kind == xsql::Query::Kind::ShowInputs) {
+        if (!build_show_inputs_result({}, input, result, meta_error)) {
+          throw std::runtime_error(meta_error);
+        }
       } else {
-        result = xsql::execute_query_from_file(input, query);
+        result = xsql::execute_query_from_document("", query);
       }
+    } else {
+      if (source.has_value() && source->kind == xsql::Source::Kind::Url) {
+        result = xsql::execute_query_from_url(source->value, query, timeout_ms);
+      } else if (source.has_value() && source->kind == xsql::Source::Kind::Path) {
+        result = xsql::execute_query_from_file(source->value, query);
+      } else if (source.has_value() && source->kind == xsql::Source::Kind::RawHtml) {
+        result = xsql::execute_query_from_document("", query);
+      } else if (source.has_value() && source->kind == xsql::Source::Kind::Fragments &&
+                 !source->needs_input) {
+        result = xsql::execute_query_from_document("", query);
+      } else if (input.empty() || input == "document") {
+        std::string html = read_stdin();
+        result = xsql::execute_query_from_document(html, query);
+      } else {
+        if (is_url(input)) {
+          result = xsql::execute_query_from_url(input, query, timeout_ms);
+        } else {
+          result = xsql::execute_query_from_file(input, query);
+        }
+      }
+      auto sources = collect_source_uris(result);
+      apply_source_uri_policy(result, sources);
     }
 
     if (result.export_sink.kind != xsql::QueryResult::ExportSink::Kind::None) {
@@ -105,6 +123,7 @@ int main(int argc, char** argv) {
       if (result.to_table) {
         if (result.tables.empty()) {
           std::cout << "(empty table)" << std::endl;
+          std::cout << "Rows: 0" << std::endl;
         } else {
           for (size_t i = 0; i < result.tables.size(); ++i) {
             if (result.tables.size() > 1) {
@@ -112,6 +131,9 @@ int main(int argc, char** argv) {
             }
             std::cout << render_table_duckbox(result.tables[i], result.table_has_header, highlight,
                                               color, 40)
+                      << std::endl;
+            std::cout << "Rows: "
+                      << count_table_rows(result.tables[i], result.table_has_header)
                       << std::endl;
           }
         }
@@ -122,6 +144,7 @@ int main(int argc, char** argv) {
         options.highlight = highlight;
         options.is_tty = color;
         std::cout << xsql::render::render_duckbox(result, options) << std::endl;
+        std::cout << "Rows: " << count_result_rows(result) << std::endl;
       } else {
         std::string json_out = build_json_list(result);
         if (display_full) {
@@ -130,6 +153,7 @@ int main(int argc, char** argv) {
           TruncateResult truncated = truncate_output(json_out, 10, 10);
           std::cout << colorize_json(truncated.output, color) << std::endl;
         }
+        std::cout << "Rows: " << count_result_rows(result) << std::endl;
       }
     } else {
       std::string json_out = result.to_table ? build_table_json(result)
