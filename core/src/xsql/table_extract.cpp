@@ -202,6 +202,63 @@ std::string extract_direct_text(const std::string& html) {
   return out;
 }
 
+/// Extracts only direct text nodes without inline tag exceptions.
+/// MUST ignore text inside any nested tags.
+std::string extract_direct_text_strict(const std::string& html) {
+  std::string out;
+  out.reserve(html.size());
+  size_t i = 0;
+  int depth = 0;
+  while (i < html.size()) {
+    if (html[i] == '<') {
+      if (html.compare(i, 4, "<!--") == 0) {
+        size_t end = html.find("-->", i + 4);
+        i = (end == std::string::npos) ? html.size() : end + 3;
+        continue;
+      }
+      bool is_end = (i + 1 < html.size() && html[i + 1] == '/');
+      size_t tag_end = find_tag_end(html, i + 1);
+      if (tag_end == std::string::npos) {
+        break;
+      }
+      size_t name_start = i + (is_end ? 2 : 1);
+      while (name_start < tag_end && std::isspace(static_cast<unsigned char>(html[name_start]))) {
+        ++name_start;
+      }
+      size_t name_end = name_start;
+      while (name_end < tag_end && is_name_char(html[name_end])) {
+        ++name_end;
+      }
+      std::string tag = util::to_lower(html.substr(name_start, name_end - name_start));
+      bool self_closing = false;
+      if (!is_end) {
+        size_t j = tag_end;
+        while (j > i && std::isspace(static_cast<unsigned char>(html[j - 1]))) {
+          --j;
+        }
+        if (j > i && html[j - 1] == '/') {
+          self_closing = true;
+        }
+        if (is_void_tag(tag)) {
+          self_closing = true;
+        }
+      }
+      if (!is_end && !self_closing) {
+        depth++;
+      } else if (is_end && depth > 0) {
+        depth--;
+      }
+      i = tag_end + 1;
+      continue;
+    }
+    if (depth == 0) {
+      out.push_back(html[i]);
+    }
+    ++i;
+  }
+  return out;
+}
+
 /// Builds adjacency lists for child traversal in table extraction.
 /// MUST preserve original document order for deterministic output.
 /// Inputs are HtmlDocument; outputs are children vectors.

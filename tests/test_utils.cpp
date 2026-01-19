@@ -30,6 +30,10 @@ xsql::QueryResult make_result(const std::vector<std::string>& columns,
         } else {
           row.parent_id = std::stoll(value);
         }
+      } else if (col == "max_depth") {
+        row.max_depth = std::stoll(value);
+      } else if (col == "doc_order") {
+        row.doc_order = std::stoll(value);
       } else if (col == "source_uri") {
         row.source_uri = value;
       } else if (col == "attributes") {

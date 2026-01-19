@@ -9,10 +9,11 @@ AutoCompleter::AutoCompleter() {
   keywords_ = {
       "select", "from", "where", "and", "or", "in", "limit", "to", "list", "table",
       "csv", "parquet", "count", "summarize", "order", "by", "asc", "desc", "document", "doc",
-      "raw", "fragments", "contains", "all", "any", "has_direct_text",
+      "raw", "fragments", "contains", "all", "any", "has_direct_text", "flatten_text",
       "attributes", "tag", "text", "parent", "child", "ancestor", "descendant",
-      "parent_id", "sibling_pos", "inner_html", "trim", "is", "null", "header", "noheader",
-      "no_header", "on", "off", "export", "tfidf", "top_terms", "min_df", "max_df",
+      "node_id", "parent_id", "sibling_pos", "max_depth", "doc_order", "source_uri",
+      "inner_html", "trim", "is", "null", "header", "noheader", "no_header",
+      "on", "off", "export", "tfidf", "top_terms", "min_df", "max_df",
       "stopwords", "english", "none", "default", "show", "describe", "input", "inputs",
       "functions", "axes", "operators", "language"
   };

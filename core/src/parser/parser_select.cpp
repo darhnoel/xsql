@@ -59,6 +59,60 @@ bool Parser::parse_exclude_list(std::vector<std::string>& fields) {
 /// MUST set saw_field/saw_tag_only consistently for validation.
 /// Inputs are tokens; outputs are select items or errors.
 bool Parser::parse_select_item(std::vector<Query::SelectItem>& items, bool& saw_field, bool& saw_tag_only) {
+  if (current_.type == TokenType::Identifier && to_upper(current_.text) == "FLATTEN_TEXT") {
+    Query::SelectItem item;
+    item.flatten_text = true;
+    size_t start = current_.pos;
+    advance();
+    if (!consume(TokenType::LParen, "Expected ( after FLATTEN_TEXT")) return false;
+    if (current_.type != TokenType::Identifier && current_.type != TokenType::KeywordTable) {
+      return set_error("Expected base tag identifier inside FLATTEN_TEXT()");
+    }
+    item.tag = current_.text;
+    advance();
+    if (current_.type == TokenType::Comma) {
+      advance();
+      if (current_.type != TokenType::Number) {
+        return set_error("Expected numeric depth in FLATTEN_TEXT()");
+      }
+      try {
+        item.flatten_depth = static_cast<size_t>(std::stoull(current_.text));
+      } catch (...) {
+        return set_error("Invalid FLATTEN_TEXT() depth");
+      }
+      advance();
+    }
+    if (!consume(TokenType::RParen, "Expected ) after FLATTEN_TEXT arguments")) return false;
+    if (current_.type == TokenType::KeywordAs) {
+      advance();
+      if (!consume(TokenType::LParen, "Expected ( after AS")) return false;
+      if (current_.type != TokenType::Identifier) {
+        return set_error("Expected column alias inside AS()");
+      }
+      while (true) {
+        if (current_.type != TokenType::Identifier) {
+          return set_error("Expected column alias inside AS()");
+        }
+        item.flatten_aliases.push_back(current_.text);
+        advance();
+        if (current_.type == TokenType::Comma) {
+          advance();
+          continue;
+        }
+        if (current_.type == TokenType::RParen) {
+          advance();
+          break;
+        }
+        return set_error("Expected , or ) after column alias");
+      }
+    } else {
+      item.flatten_aliases = {"flatten_text"};
+    }
+    item.span = Span{start, current_.pos};
+    items.push_back(item);
+    saw_field = true;
+    return true;
+  }
   if (current_.type == TokenType::Identifier && to_upper(current_.text) == "SUMMARIZE") {
     Query::SelectItem item;
     item.aggregate = Query::SelectItem::Aggregate::Summarize;

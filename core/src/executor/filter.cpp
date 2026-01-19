@@ -189,6 +189,24 @@ bool match_field(const HtmlNode& node,
     if (op == CompareExpr::Op::NotEq) return *node.parent_id != *target;
     return *node.parent_id == *target;
   }
+  if (field_kind == Operand::FieldKind::MaxDepth ||
+      field_kind == Operand::FieldKind::DocOrder) {
+    if (op == CompareExpr::Op::Regex) return false;
+    auto target = parse_int64(values.front());
+    if (!target.has_value()) return false;
+    int64_t field_value = (field_kind == Operand::FieldKind::MaxDepth)
+                              ? node.max_depth
+                              : node.doc_order;
+    if (is_in) {
+      for (const auto& value : values) {
+        auto parsed = parse_int64(value);
+        if (parsed.has_value() && *parsed == field_value) return true;
+      }
+      return false;
+    }
+    if (op == CompareExpr::Op::NotEq) return field_value != *target;
+    return field_value == *target;
+  }
   if (field_kind == Operand::FieldKind::Attribute) {
     if (op == CompareExpr::Op::Contains) {
       auto it = node.attributes.find(attr);
@@ -617,6 +635,27 @@ bool eval_expr(const Expr& expr,
   const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
   bool left = eval_expr(bin.left, doc, children, node);
   bool right = eval_expr(bin.right, doc, children, node);
+  if (bin.op == BinaryExpr::Op::And) return left && right;
+  return left || right;
+}
+
+/// Evaluates a boolean expression for FLATTEN_TEXT base node selection.
+/// MUST ignore descendant.tag filters so they only affect flattening.
+bool eval_expr_flatten_base(const Expr& expr,
+                            const HtmlDocument& doc,
+                            const std::vector<std::vector<int64_t>>& children,
+                            const HtmlNode& node) {
+  if (std::holds_alternative<CompareExpr>(expr)) {
+    const auto& cmp = std::get<CompareExpr>(expr);
+    if (cmp.lhs.axis == Operand::Axis::Descendant) {
+      return true;
+    }
+    return eval_expr(expr, doc, children, node);
+  }
+
+  const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
+  bool left = eval_expr_flatten_base(bin.left, doc, children, node);
+  bool right = eval_expr_flatten_base(bin.right, doc, children, node);
   if (bin.op == BinaryExpr::Op::And) return left && right;
   return left || right;
 }

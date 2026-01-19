@@ -208,9 +208,15 @@ std::string field_value(const xsql::QueryResultRow& row, const std::string& fiel
   if (field == "parent_id") {
     return row.parent_id.has_value() ? std::to_string(*row.parent_id) : "NULL";
   }
+  if (field == "max_depth") return std::to_string(row.max_depth);
+  if (field == "doc_order") return std::to_string(row.doc_order);
   if (field == "source_uri") return row.source_uri;
   if (field == "attributes") return attributes_to_string(row.attributes);
   if (field == "terms_score") return term_scores_to_string(row.term_scores);
+  auto computed = row.computed_fields.find(field);
+  if (computed != row.computed_fields.end()) {
+    return computed->second;
+  }
   auto it = row.attributes.find(field);
   if (it == row.attributes.end()) return "NULL";
   return it->second;

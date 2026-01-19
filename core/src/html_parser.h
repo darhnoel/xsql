@@ -15,6 +15,8 @@ struct HtmlNode {
   std::string inner_html;
   std::unordered_map<std::string, std::string> attributes;
   std::optional<int64_t> parent_id;
+  int64_t max_depth = 0;
+  int64_t doc_order = 0;
 };
 
 struct HtmlDocument {

@@ -235,6 +235,20 @@ bool Parser::parse_operand(Operand& operand) {
     operand.span = Span{current_.pos, current_.pos + current_.text.size()};
     return true;
   }
+  if (to_upper(current_.text) == "MAX_DEPTH") {
+    advance();
+    operand.axis = Operand::Axis::Self;
+    operand.field_kind = Operand::FieldKind::MaxDepth;
+    operand.span = Span{current_.pos, current_.pos + current_.text.size()};
+    return true;
+  }
+  if (to_upper(current_.text) == "DOC_ORDER") {
+    advance();
+    operand.axis = Operand::Axis::Self;
+    operand.field_kind = Operand::FieldKind::DocOrder;
+    operand.span = Span{current_.pos, current_.pos + current_.text.size()};
+    return true;
+  }
   if (to_upper(current_.text) == "PARENT") {
     advance();
     if (!consume(TokenType::Dot, "Expected . after parent")) return false;
@@ -252,7 +266,7 @@ bool Parser::parse_operand(Operand& operand) {
       return true;
     }
     if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
-        next == "SIBLING_POS") {
+        next == "SIBLING_POS" || next == "MAX_DEPTH" || next == "DOC_ORDER") {
       operand.axis = Operand::Axis::Parent;
       if (next == "TAG") {
         operand.field_kind = Operand::FieldKind::Tag;
@@ -262,6 +276,10 @@ bool Parser::parse_operand(Operand& operand) {
         operand.field_kind = Operand::FieldKind::NodeId;
       } else if (next == "SIBLING_POS") {
         operand.field_kind = Operand::FieldKind::SiblingPos;
+      } else if (next == "MAX_DEPTH") {
+        operand.field_kind = Operand::FieldKind::MaxDepth;
+      } else if (next == "DOC_ORDER") {
+        operand.field_kind = Operand::FieldKind::DocOrder;
       } else {
         operand.field_kind = Operand::FieldKind::ParentId;
       }
@@ -288,7 +306,7 @@ bool Parser::parse_operand(Operand& operand) {
       return true;
     }
     if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
-        next == "SIBLING_POS") {
+        next == "SIBLING_POS" || next == "MAX_DEPTH" || next == "DOC_ORDER") {
       operand.axis = Operand::Axis::Child;
       if (next == "TAG") {
         operand.field_kind = Operand::FieldKind::Tag;
@@ -298,6 +316,10 @@ bool Parser::parse_operand(Operand& operand) {
         operand.field_kind = Operand::FieldKind::NodeId;
       } else if (next == "SIBLING_POS") {
         operand.field_kind = Operand::FieldKind::SiblingPos;
+      } else if (next == "MAX_DEPTH") {
+        operand.field_kind = Operand::FieldKind::MaxDepth;
+      } else if (next == "DOC_ORDER") {
+        operand.field_kind = Operand::FieldKind::DocOrder;
       } else {
         operand.field_kind = Operand::FieldKind::ParentId;
       }
@@ -324,7 +346,7 @@ bool Parser::parse_operand(Operand& operand) {
       return true;
     }
     if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
-        next == "SIBLING_POS") {
+        next == "SIBLING_POS" || next == "MAX_DEPTH" || next == "DOC_ORDER") {
       operand.axis = Operand::Axis::Ancestor;
       if (next == "TAG") {
         operand.field_kind = Operand::FieldKind::Tag;
@@ -334,6 +356,10 @@ bool Parser::parse_operand(Operand& operand) {
         operand.field_kind = Operand::FieldKind::NodeId;
       } else if (next == "SIBLING_POS") {
         operand.field_kind = Operand::FieldKind::SiblingPos;
+      } else if (next == "MAX_DEPTH") {
+        operand.field_kind = Operand::FieldKind::MaxDepth;
+      } else if (next == "DOC_ORDER") {
+        operand.field_kind = Operand::FieldKind::DocOrder;
       } else {
         operand.field_kind = Operand::FieldKind::ParentId;
       }
@@ -360,7 +386,7 @@ bool Parser::parse_operand(Operand& operand) {
       return true;
     }
     if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
-        next == "SIBLING_POS") {
+        next == "SIBLING_POS" || next == "MAX_DEPTH" || next == "DOC_ORDER") {
       operand.axis = Operand::Axis::Descendant;
       if (next == "TAG") {
         operand.field_kind = Operand::FieldKind::Tag;
@@ -370,6 +396,10 @@ bool Parser::parse_operand(Operand& operand) {
         operand.field_kind = Operand::FieldKind::NodeId;
       } else if (next == "SIBLING_POS") {
         operand.field_kind = Operand::FieldKind::SiblingPos;
+      } else if (next == "MAX_DEPTH") {
+        operand.field_kind = Operand::FieldKind::MaxDepth;
+      } else if (next == "DOC_ORDER") {
+        operand.field_kind = Operand::FieldKind::DocOrder;
       } else {
         operand.field_kind = Operand::FieldKind::ParentId;
       }
@@ -409,6 +439,18 @@ bool Parser::parse_operand(Operand& operand) {
     if (to_upper(qualifier) == "SIBLING_POS") {
       operand.axis = Operand::Axis::Self;
       operand.field_kind = Operand::FieldKind::SiblingPos;
+      operand.span = Span{current_.pos, current_.pos};
+      return true;
+    }
+    if (to_upper(qualifier) == "MAX_DEPTH") {
+      operand.axis = Operand::Axis::Self;
+      operand.field_kind = Operand::FieldKind::MaxDepth;
+      operand.span = Span{current_.pos, current_.pos};
+      return true;
+    }
+    if (to_upper(qualifier) == "DOC_ORDER") {
+      operand.axis = Operand::Axis::Self;
+      operand.field_kind = Operand::FieldKind::DocOrder;
       operand.span = Span{current_.pos, current_.pos};
       return true;
     }
@@ -465,6 +507,22 @@ bool Parser::parse_operand(Operand& operand) {
     advance();
     return true;
   }
+  if (to_upper(current_.text) == "MAX_DEPTH") {
+    operand.axis = Operand::Axis::Self;
+    operand.field_kind = Operand::FieldKind::MaxDepth;
+    operand.qualifier = qualifier;
+    operand.span = Span{current_.pos, current_.pos + current_.text.size()};
+    advance();
+    return true;
+  }
+  if (to_upper(current_.text) == "DOC_ORDER") {
+    operand.axis = Operand::Axis::Self;
+    operand.field_kind = Operand::FieldKind::DocOrder;
+    operand.qualifier = qualifier;
+    operand.span = Span{current_.pos, current_.pos + current_.text.size()};
+    advance();
+    return true;
+  }
   if (to_upper(current_.text) == "PARENT") {
     advance();
     if (!consume(TokenType::Dot, "Expected . after parent")) return false;
@@ -483,7 +541,7 @@ bool Parser::parse_operand(Operand& operand) {
       return true;
     }
     if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
-        next == "SIBLING_POS") {
+        next == "SIBLING_POS" || next == "MAX_DEPTH" || next == "DOC_ORDER") {
       operand.axis = Operand::Axis::Parent;
       if (next == "TAG") {
         operand.field_kind = Operand::FieldKind::Tag;
@@ -493,6 +551,10 @@ bool Parser::parse_operand(Operand& operand) {
         operand.field_kind = Operand::FieldKind::NodeId;
       } else if (next == "SIBLING_POS") {
         operand.field_kind = Operand::FieldKind::SiblingPos;
+      } else if (next == "MAX_DEPTH") {
+        operand.field_kind = Operand::FieldKind::MaxDepth;
+      } else if (next == "DOC_ORDER") {
+        operand.field_kind = Operand::FieldKind::DocOrder;
       } else {
         operand.field_kind = Operand::FieldKind::ParentId;
       }
@@ -521,7 +583,7 @@ bool Parser::parse_operand(Operand& operand) {
       return true;
     }
     if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
-        next == "SIBLING_POS") {
+        next == "SIBLING_POS" || next == "MAX_DEPTH" || next == "DOC_ORDER") {
       operand.axis = Operand::Axis::Child;
       if (next == "TAG") {
         operand.field_kind = Operand::FieldKind::Tag;
@@ -531,6 +593,10 @@ bool Parser::parse_operand(Operand& operand) {
         operand.field_kind = Operand::FieldKind::NodeId;
       } else if (next == "SIBLING_POS") {
         operand.field_kind = Operand::FieldKind::SiblingPos;
+      } else if (next == "MAX_DEPTH") {
+        operand.field_kind = Operand::FieldKind::MaxDepth;
+      } else if (next == "DOC_ORDER") {
+        operand.field_kind = Operand::FieldKind::DocOrder;
       } else {
         operand.field_kind = Operand::FieldKind::ParentId;
       }
@@ -559,7 +625,7 @@ bool Parser::parse_operand(Operand& operand) {
       return true;
     }
     if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
-        next == "SIBLING_POS") {
+        next == "SIBLING_POS" || next == "MAX_DEPTH" || next == "DOC_ORDER") {
       operand.axis = Operand::Axis::Ancestor;
       if (next == "TAG") {
         operand.field_kind = Operand::FieldKind::Tag;
@@ -569,6 +635,10 @@ bool Parser::parse_operand(Operand& operand) {
         operand.field_kind = Operand::FieldKind::NodeId;
       } else if (next == "SIBLING_POS") {
         operand.field_kind = Operand::FieldKind::SiblingPos;
+      } else if (next == "MAX_DEPTH") {
+        operand.field_kind = Operand::FieldKind::MaxDepth;
+      } else if (next == "DOC_ORDER") {
+        operand.field_kind = Operand::FieldKind::DocOrder;
       } else {
         operand.field_kind = Operand::FieldKind::ParentId;
       }
@@ -597,7 +667,7 @@ bool Parser::parse_operand(Operand& operand) {
       return true;
     }
     if (next == "TAG" || next == "TEXT" || next == "NODE_ID" || next == "PARENT_ID" ||
-        next == "SIBLING_POS") {
+        next == "SIBLING_POS" || next == "MAX_DEPTH" || next == "DOC_ORDER") {
       operand.axis = Operand::Axis::Descendant;
       if (next == "TAG") {
         operand.field_kind = Operand::FieldKind::Tag;
@@ -607,6 +677,10 @@ bool Parser::parse_operand(Operand& operand) {
         operand.field_kind = Operand::FieldKind::NodeId;
       } else if (next == "SIBLING_POS") {
         operand.field_kind = Operand::FieldKind::SiblingPos;
+      } else if (next == "MAX_DEPTH") {
+        operand.field_kind = Operand::FieldKind::MaxDepth;
+      } else if (next == "DOC_ORDER") {
+        operand.field_kind = Operand::FieldKind::DocOrder;
       } else {
         operand.field_kind = Operand::FieldKind::ParentId;
       }

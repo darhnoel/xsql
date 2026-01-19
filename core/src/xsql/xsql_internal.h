@@ -102,5 +102,9 @@ std::string limit_inner_html(const std::string& html, size_t max_depth);
 /// MUST ignore text inside child tags and MUST preserve order.
 /// Inputs are HTML strings; outputs are text-only strings.
 std::string extract_direct_text(const std::string& html);
+/// Extracts only immediate text nodes without inline tag exceptions.
+/// MUST treat all element tags as depth boundaries for strict flattening.
+/// Inputs are HTML strings; outputs are text-only strings.
+std::string extract_direct_text_strict(const std::string& html);
 
 }  // namespace xsql::xsql_internal

@@ -33,7 +33,9 @@ struct Operand {
     Text,
     NodeId,
     ParentId,
-    SiblingPos
+    SiblingPos,
+    MaxDepth,
+    DocOrder
   } field_kind = FieldKind::Attribute;
   std::string attribute;
   std::optional<std::string> qualifier;
@@ -108,6 +110,9 @@ struct Query {
     bool inner_html_function = false;
     bool text_function = false;
     bool trim = false;
+    bool flatten_text = false;
+    std::optional<size_t> flatten_depth;
+    std::vector<std::string> flatten_aliases;
     Span span;
   };
   std::vector<SelectItem> select_items;

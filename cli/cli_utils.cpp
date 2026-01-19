@@ -106,6 +106,10 @@ void print_field(std::ostream& os, const std::string& field, const xsql::QueryRe
     }
   } else if (field == "sibling_pos") {
     os << row.sibling_pos;
+  } else if (field == "max_depth") {
+    os << row.max_depth;
+  } else if (field == "doc_order") {
+    os << row.doc_order;
   } else if (field == "source_uri") {
     os << "\"" << json_escape(row.source_uri) << "\"";
   } else if (field == "attributes") {
@@ -121,11 +125,16 @@ void print_field(std::ostream& os, const std::string& field, const xsql::QueryRe
     os << "null";
 #endif
   } else {
-    auto it = row.attributes.find(field);
-    if (it != row.attributes.end()) {
-      os << "\"" << json_escape(it->second) << "\"";
+    auto computed = row.computed_fields.find(field);
+    if (computed != row.computed_fields.end()) {
+      os << "\"" << json_escape(computed->second) << "\"";
     } else {
-      os << "null";
+      auto it = row.attributes.find(field);
+      if (it != row.attributes.end()) {
+        os << "\"" << json_escape(it->second) << "\"";
+      } else {
+        os << "null";
+      }
     }
   }
 }
@@ -521,7 +530,7 @@ std::string build_json(const xsql::QueryResult& result) {
   using nlohmann::json;
   std::vector<std::string> columns = result.columns;
   if (columns.empty()) {
-    columns = {"node_id", "tag", "attributes", "parent_id"};
+    columns = {"node_id", "tag", "attributes", "parent_id", "max_depth", "doc_order"};
   }
   json out = json::array();
   for (const auto& row : result.rows) {
@@ -539,6 +548,10 @@ std::string build_json(const xsql::QueryResult& result) {
         obj[field] = row.inner_html;
       } else if (field == "parent_id") {
         obj[field] = row.parent_id.has_value() ? json(*row.parent_id) : json(nullptr);
+      } else if (field == "max_depth") {
+        obj[field] = row.max_depth;
+      } else if (field == "doc_order") {
+        obj[field] = row.doc_order;
       } else if (field == "source_uri") {
         obj[field] = row.source_uri;
       } else if (field == "attributes") {
@@ -554,8 +567,13 @@ std::string build_json(const xsql::QueryResult& result) {
         }
         obj[field] = scores;
       } else {
-        auto it = row.attributes.find(field);
-        obj[field] = (it != row.attributes.end()) ? json(it->second) : json(nullptr);
+        auto computed = row.computed_fields.find(field);
+        if (computed != row.computed_fields.end()) {
+          obj[field] = computed->second;
+        } else {
+          auto it = row.attributes.find(field);
+          obj[field] = (it != row.attributes.end()) ? json(it->second) : json(nullptr);
+        }
       }
     }
     out.push_back(obj);
@@ -564,7 +582,7 @@ std::string build_json(const xsql::QueryResult& result) {
 #else
   std::vector<std::string> columns = result.columns;
   if (columns.empty()) {
-    columns = {"node_id", "tag", "attributes", "parent_id"};
+    columns = {"node_id", "tag", "attributes", "parent_id", "max_depth", "doc_order"};
   }
   std::ostringstream oss;
   oss << "[";
@@ -607,6 +625,10 @@ std::string build_json_list(const xsql::QueryResult& result) {
       out.push_back(row.inner_html);
     } else if (field == "parent_id") {
       out.push_back(row.parent_id.has_value() ? json(*row.parent_id) : json(nullptr));
+    } else if (field == "max_depth") {
+      out.push_back(row.max_depth);
+    } else if (field == "doc_order") {
+      out.push_back(row.doc_order);
     } else if (field == "source_uri") {
       out.push_back(row.source_uri);
     } else if (field == "attributes") {
@@ -616,8 +638,13 @@ std::string build_json_list(const xsql::QueryResult& result) {
       }
       out.push_back(attrs);
     } else {
-      auto it = row.attributes.find(field);
-      out.push_back((it != row.attributes.end()) ? json(it->second) : json(nullptr));
+      auto computed = row.computed_fields.find(field);
+      if (computed != row.computed_fields.end()) {
+        out.push_back(computed->second);
+      } else {
+        auto it = row.attributes.find(field);
+        out.push_back((it != row.attributes.end()) ? json(it->second) : json(nullptr));
+      }
     }
   }
   return out.dump(2);

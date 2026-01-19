@@ -21,7 +21,7 @@ std::vector<std::string> build_columns(const Query& query) {
     }
   }
   if (!is_projection_query(query)) {
-    std::vector<std::string> cols = {"node_id", "tag", "attributes", "parent_id"};
+    std::vector<std::string> cols = {"node_id", "tag", "attributes", "parent_id", "max_depth", "doc_order"};
     if (!query.exclude_fields.empty()) {
       std::vector<std::string> out;
       out.reserve(cols.size());
@@ -40,8 +40,18 @@ std::vector<std::string> build_columns(const Query& query) {
     return cols;
   }
   std::vector<std::string> cols;
-  cols.reserve(query.select_items.size());
+  size_t extra = 0;
   for (const auto& item : query.select_items) {
+    if (item.flatten_text) {
+      extra += item.flatten_aliases.size();
+    }
+  }
+  cols.reserve(query.select_items.size() + extra);
+  for (const auto& item : query.select_items) {
+    if (item.flatten_text) {
+      cols.insert(cols.end(), item.flatten_aliases.begin(), item.flatten_aliases.end());
+      continue;
+    }
     cols.push_back(*item.field);
   }
   return cols;

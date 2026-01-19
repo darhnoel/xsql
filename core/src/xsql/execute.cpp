@@ -1,9 +1,11 @@
 #include "xsql/xsql.h"
 
 #include <algorithm>
+#include <cctype>
 #include <stdexcept>
 #include <unordered_map>
 
+#include "../executor/executor_internal.h"
 #include "../executor.h"
 #include "../html_parser.h"
 #include "../query_parser.h"
@@ -17,6 +19,164 @@ namespace {
 struct FragmentSource {
   std::vector<std::string> fragments;
 };
+
+struct DescendantTagFilter {
+  struct Predicate {
+    Operand::FieldKind field_kind = Operand::FieldKind::Tag;
+    std::string attribute;
+    CompareExpr::Op op = CompareExpr::Op::Eq;
+    std::vector<std::string> values;
+  };
+  std::vector<Predicate> predicates;
+};
+
+std::string normalize_flatten_text(const std::string& value) {
+  std::string trimmed = util::trim_ws(value);
+  std::string out;
+  out.reserve(trimmed.size());
+  bool in_space = false;
+  for (char c : trimmed) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+      if (!in_space) {
+        out.push_back(' ');
+        in_space = true;
+      }
+      continue;
+    }
+    in_space = false;
+    out.push_back(c);
+  }
+  return out;
+}
+
+void collect_descendants_at_depth(const std::vector<std::vector<int64_t>>& children,
+                                  int64_t node_id,
+                                  size_t depth,
+                                  std::vector<int64_t>& out) {
+  if (depth == 0) {
+    out.push_back(node_id);
+    return;
+  }
+  for (int64_t child : children.at(static_cast<size_t>(node_id))) {
+    collect_descendants_at_depth(children, child, depth - 1, out);
+  }
+}
+
+void collect_descendants_any_depth(const std::vector<std::vector<int64_t>>& children,
+                                   int64_t node_id,
+                                   std::vector<int64_t>& out) {
+  for (int64_t child : children.at(static_cast<size_t>(node_id))) {
+    out.push_back(child);
+    collect_descendants_any_depth(children, child, out);
+  }
+}
+
+bool collect_descendant_tag_filter(const Expr& expr, DescendantTagFilter& filter) {
+  if (std::holds_alternative<CompareExpr>(expr)) {
+    const auto& cmp = std::get<CompareExpr>(expr);
+    if (cmp.lhs.axis == Operand::Axis::Descendant &&
+        (cmp.lhs.field_kind == Operand::FieldKind::Tag ||
+         cmp.lhs.field_kind == Operand::FieldKind::Attribute)) {
+      DescendantTagFilter::Predicate pred;
+      pred.field_kind = cmp.lhs.field_kind;
+      pred.attribute = cmp.lhs.attribute;
+      pred.op = cmp.op;
+      pred.values.reserve(cmp.rhs.values.size());
+      if (cmp.lhs.field_kind == Operand::FieldKind::Tag) {
+        for (const auto& value : cmp.rhs.values) {
+          pred.values.push_back(util::to_lower(value));
+        }
+      } else {
+        pred.values = cmp.rhs.values;
+      }
+      filter.predicates.push_back(std::move(pred));
+      return true;
+    }
+    return false;
+  }
+  const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
+  bool left = collect_descendant_tag_filter(bin.left, filter);
+  bool right = collect_descendant_tag_filter(bin.right, filter);
+  return left || right;
+}
+
+bool contains_ci(const std::string& haystack, const std::string& needle) {
+  if (needle.empty()) return true;
+  std::string lower_haystack = util::to_lower(haystack);
+  std::string lower_needle = util::to_lower(needle);
+  return lower_haystack.find(lower_needle) != std::string::npos;
+}
+
+bool contains_all_ci(const std::string& haystack, const std::vector<std::string>& tokens) {
+  for (const auto& token : tokens) {
+    if (!contains_ci(haystack, token)) return false;
+  }
+  return true;
+}
+
+bool contains_any_ci(const std::string& haystack, const std::vector<std::string>& tokens) {
+  for (const auto& token : tokens) {
+    if (contains_ci(haystack, token)) return true;
+  }
+  return false;
+}
+
+std::vector<std::string> split_ws(const std::string& s) {
+  std::vector<std::string> out;
+  size_t i = 0;
+  while (i < s.size()) {
+    while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) {
+      ++i;
+    }
+    size_t start = i;
+    while (i < s.size() && !std::isspace(static_cast<unsigned char>(s[i]))) {
+      ++i;
+    }
+    if (start < i) out.push_back(s.substr(start, i - start));
+  }
+  return out;
+}
+
+bool match_descendant_predicate(const HtmlNode& node, const DescendantTagFilter::Predicate& pred) {
+  if (pred.field_kind == Operand::FieldKind::Tag) {
+    if (pred.op == CompareExpr::Op::In) {
+      return executor_internal::string_in_list(node.tag, pred.values);
+    }
+    if (pred.op == CompareExpr::Op::Eq) {
+      return node.tag == pred.values.front();
+    }
+    return false;
+  }
+  const auto it = node.attributes.find(pred.attribute);
+  if (it == node.attributes.end()) return false;
+  const std::string& attr_value = it->second;
+  if (pred.op == CompareExpr::Op::Contains) {
+    return contains_ci(attr_value, pred.values.front());
+  }
+  if (pred.op == CompareExpr::Op::ContainsAll) {
+    return contains_all_ci(attr_value, pred.values);
+  }
+  if (pred.op == CompareExpr::Op::ContainsAny) {
+    return contains_any_ci(attr_value, pred.values);
+  }
+  if (pred.op == CompareExpr::Op::In || pred.op == CompareExpr::Op::Eq) {
+    if (pred.attribute == "class") {
+      auto tokens = split_ws(attr_value);
+      if (pred.op == CompareExpr::Op::Eq) {
+        return executor_internal::string_in_list(pred.values.front(), tokens);
+      }
+      for (const auto& token : tokens) {
+        if (executor_internal::string_in_list(token, pred.values)) return true;
+      }
+      return false;
+    }
+    if (pred.op == CompareExpr::Op::Eq) {
+      return attr_value == pred.values.front();
+    }
+    return executor_internal::string_in_list(attr_value, pred.values);
+  }
+  return false;
+}
 
 bool looks_like_html_fragment(const std::string& value) {
   return value.find('<') != std::string::npos && value.find('>') != std::string::npos;
@@ -33,8 +193,12 @@ std::optional<std::string> field_value_string(const QueryResultRow& row, const s
     return std::to_string(*row.parent_id);
   }
   if (field == "sibling_pos") return std::to_string(row.sibling_pos);
+  if (field == "max_depth") return std::to_string(row.max_depth);
+  if (field == "doc_order") return std::to_string(row.doc_order);
   if (field == "source_uri") return row.source_uri;
   if (field == "attributes") return std::nullopt;
+  auto computed = row.computed_fields.find(field);
+  if (computed != row.computed_fields.end()) return computed->second;
   auto it = row.attributes.find(field);
   if (it == row.attributes.end()) return std::nullopt;
   return it->second;
@@ -76,6 +240,7 @@ QueryResult execute_meta_query(const Query& query, const std::string& source_uri
           {
               {"text(tag)", "string", "Text content of a tag"},
               {"inner_html(tag[, depth])", "string", "HTML inside a tag"},
+              {"flatten_text(tag[, depth])", "string[]", "Flatten descendant text at depth into columns"},
               {"trim(inner_html(...))", "string", "Trim whitespace in inner_html"},
               {"count(tag|*)", "int64", "Aggregate node count"},
               {"summarize(*)", "table<tag,count>", "Tag counts summary"},
@@ -118,6 +283,8 @@ QueryResult execute_meta_query(const Query& query, const std::string& source_uri
               {"tag", "string", "false", "Lowercase tag name"},
               {"attributes", "map<string,string>", "false", "HTML attributes"},
               {"parent_id", "int64", "true", "Null for root"},
+              {"max_depth", "int64", "false", "Max element depth under node"},
+              {"doc_order", "int64", "false", "Preorder document index"},
               {"sibling_pos", "int64", "false", "1-based among siblings"},
               {"source_uri", "string", "true", "Empty for RAW/STDIN"},
           });
@@ -130,7 +297,7 @@ QueryResult execute_meta_query(const Query& query, const std::string& source_uri
               {"clause", "FROM", "FROM <source>", "Defaults to document in REPL"},
               {"clause", "WHERE", "WHERE <expr>", "Predicate expression"},
               {"clause", "ORDER BY", "ORDER BY <field> [ASC|DESC]",
-               "node_id, tag, text, parent_id, sibling_pos; SUMMARIZE uses tag/count"},
+               "node_id, tag, text, parent_id, sibling_pos, max_depth, doc_order; SUMMARIZE uses tag/count"},
               {"clause", "LIMIT", "LIMIT <n>", "n >= 0, max enforced"},
               {"clause", "EXCLUDE", "EXCLUDE <field>[, ...]", "Only with SELECT *"},
               {"output", "TO LIST", "TO LIST()", "Requires one projected column"},
@@ -199,6 +366,7 @@ void append_document(HtmlDocument& target, const HtmlDocument& source) {
   for (const auto& node : source.nodes) {
     HtmlNode copy = node;
     copy.id = node.id + offset;
+    copy.doc_order = node.doc_order + offset;
     if (node.parent_id.has_value()) {
       copy.parent_id = *node.parent_id + offset;
     }
@@ -348,6 +516,116 @@ QueryResult execute_query_ast(const Query& query, const HtmlDocument& doc, const
     }
     return out;
   }
+  const Query::SelectItem* flatten_item = nullptr;
+  for (const auto& item : query.select_items) {
+    if (item.flatten_text) {
+      flatten_item = &item;
+      break;
+    }
+  }
+  if (flatten_item != nullptr) {
+    auto children = xsql_internal::build_children(doc);
+    std::vector<int64_t> sibling_positions(doc.nodes.size(), 1);
+    for (size_t parent = 0; parent < children.size(); ++parent) {
+      const auto& kids = children[parent];
+      for (size_t idx = 0; idx < kids.size(); ++idx) {
+        sibling_positions.at(static_cast<size_t>(kids[idx])) = static_cast<int64_t>(idx + 1);
+      }
+    }
+    DescendantTagFilter descendant_filter;
+    if (query.where.has_value()) {
+      collect_descendant_tag_filter(*query.where, descendant_filter);
+    }
+    std::string base_tag = util::to_lower(flatten_item->tag);
+    bool tag_is_alias = query.source.alias.has_value() &&
+                        util::to_lower(*query.source.alias) == base_tag;
+    bool match_all_tags = tag_is_alias || base_tag == "document";
+    struct FlattenRow {
+      const HtmlNode* node = nullptr;
+      QueryResultRow row;
+    };
+    std::vector<FlattenRow> rows;
+    rows.reserve(doc.nodes.size());
+    for (const auto& node : doc.nodes) {
+      if (!match_all_tags && node.tag != base_tag) {
+        continue;
+      }
+      if (query.where.has_value()) {
+        if (!executor_internal::eval_expr_flatten_base(*query.where, doc, children, node)) {
+          continue;
+        }
+      }
+      QueryResultRow row;
+      row.node_id = node.id;
+      row.tag = node.tag;
+      row.text = node.text;
+      row.inner_html = node.inner_html;
+      row.attributes = node.attributes;
+      row.source_uri = source_uri;
+      row.sibling_pos = sibling_positions.at(static_cast<size_t>(node.id));
+      row.max_depth = node.max_depth;
+      row.doc_order = node.doc_order;
+      row.parent_id = node.parent_id;
+
+      std::vector<int64_t> descendants;
+      bool depth_is_default = !flatten_item->flatten_depth.has_value();
+      if (depth_is_default) {
+        collect_descendants_any_depth(children, node.id, descendants);
+      } else {
+        collect_descendants_at_depth(children, node.id, *flatten_item->flatten_depth, descendants);
+      }
+      std::vector<std::string> values;
+      for (int64_t id : descendants) {
+        const auto& child = doc.nodes.at(static_cast<size_t>(id));
+        bool matched = true;
+        for (const auto& pred : descendant_filter.predicates) {
+          if (!match_descendant_predicate(child, pred)) {
+            matched = false;
+            break;
+          }
+        }
+        if (!matched) continue;
+        std::string direct = xsql_internal::extract_direct_text_strict(child.inner_html);
+        std::string normalized = normalize_flatten_text(direct);
+        if (normalized.empty()) {
+          direct = xsql_internal::extract_direct_text(child.inner_html);
+          normalized = normalize_flatten_text(direct);
+        }
+        if (depth_is_default && normalized.empty()) {
+          continue;
+        }
+        values.push_back(std::move(normalized));
+      }
+      for (size_t i = 0; i < flatten_item->flatten_aliases.size(); ++i) {
+        if (i < values.size()) {
+          row.computed_fields[flatten_item->flatten_aliases[i]] = values[i];
+        }
+      }
+      rows.push_back(FlattenRow{&node, std::move(row)});
+    }
+    if (!query.order_by.empty()) {
+      std::stable_sort(rows.begin(), rows.end(),
+                       [&](const auto& left, const auto& right) {
+                         for (const auto& order_by : query.order_by) {
+                           int cmp = executor_internal::compare_nodes(*left.node, *right.node, order_by.field);
+                           if (cmp == 0) continue;
+                           if (order_by.descending) {
+                             return cmp > 0;
+                           }
+                           return cmp < 0;
+                         }
+                         return false;
+                       });
+    }
+    if (query.limit.has_value() && rows.size() > *query.limit) {
+      rows.resize(*query.limit);
+    }
+    out.rows.reserve(rows.size());
+    for (auto& entry : rows) {
+      out.rows.push_back(std::move(entry.row));
+    }
+    return out;
+  }
   for (const auto& item : query.select_items) {
     if (item.aggregate == Query::SelectItem::Aggregate::Count) {
       QueryResultRow row;
@@ -392,6 +670,8 @@ QueryResult execute_query_ast(const Query& query, const HtmlDocument& doc, const
     row.attributes = node.attributes;
     row.source_uri = source_uri;
     row.sibling_pos = sibling_positions.at(static_cast<size_t>(node.id));
+    row.max_depth = node.max_depth;
+    row.doc_order = node.doc_order;
     if (trim_item != nullptr && trim_item->field.has_value()) {
       const std::string& field = *trim_item->field;
       if (field == "text") {

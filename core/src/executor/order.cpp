@@ -42,6 +42,16 @@ int compare_nodes(const HtmlNode& left, const HtmlNode& right, const std::string
   if (field == "tag") return compare_string(left.tag, right.tag);
   if (field == "text") return compare_string(left.text, right.text);
   if (field == "parent_id") return compare_nullable_int(left.parent_id, right.parent_id);
+  if (field == "max_depth") {
+    if (left.max_depth < right.max_depth) return -1;
+    if (left.max_depth > right.max_depth) return 1;
+    return 0;
+  }
+  if (field == "doc_order") {
+    if (left.doc_order < right.doc_order) return -1;
+    if (left.doc_order > right.doc_order) return 1;
+    return 0;
+  }
   return 0;
 }
 

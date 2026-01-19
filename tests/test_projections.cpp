@@ -63,13 +63,13 @@ void test_projection_sibling_pos() {
 void test_select_exclude_single() {
   std::string html = "<div></div>";
   auto result = run_query(html, "SELECT * EXCLUDE source_uri FROM document");
-  expect_eq(result.columns.size(), 4, "exclude removes one column");
+  expect_eq(result.columns.size(), 6, "exclude removes one column");
 }
 
 void test_select_exclude_list() {
   std::string html = "<div></div>";
   auto result = run_query(html, "SELECT * EXCLUDE (source_uri, tag) FROM document");
-  expect_eq(result.columns.size(), 3, "exclude removes two columns");
+  expect_eq(result.columns.size(), 5, "exclude removes two columns");
 }
 
 }  // namespace

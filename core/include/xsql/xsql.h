@@ -18,8 +18,11 @@ struct QueryResultRow {
   std::string inner_html;
   std::unordered_map<std::string, double> term_scores;
   std::unordered_map<std::string, std::string> attributes;
+  std::unordered_map<std::string, std::string> computed_fields;
   std::optional<int64_t> parent_id;
   int64_t sibling_pos = 0;
+  int64_t max_depth = 0;
+  int64_t doc_order = 0;
   std::string source_uri;
 };
 

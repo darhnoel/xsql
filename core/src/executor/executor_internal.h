@@ -18,6 +18,10 @@ bool eval_expr(const Expr& expr,
                const HtmlDocument& doc,
                const std::vector<std::vector<int64_t>>& children,
                const HtmlNode& node);
+bool eval_expr_flatten_base(const Expr& expr,
+                            const HtmlDocument& doc,
+                            const std::vector<std::vector<int64_t>>& children,
+                            const HtmlNode& node);
 /// Checks membership of a string in a list for filtering decisions.
 /// MUST use exact matching and MUST be case-sensitive.
 /// Inputs are value/list; outputs are boolean with no side effects.

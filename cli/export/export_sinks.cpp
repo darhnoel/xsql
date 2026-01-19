@@ -72,9 +72,13 @@ CellValue field_value(const xsql::QueryResultRow& row, const std::string& field)
     if (!row.parent_id.has_value()) return {"", true};
     return {std::to_string(*row.parent_id), false};
   }
+  if (field == "max_depth") return {std::to_string(row.max_depth), false};
+  if (field == "doc_order") return {std::to_string(row.doc_order), false};
   if (field == "source_uri") return {row.source_uri, false};
   if (field == "attributes") return {attributes_to_string(row.attributes), false};
   if (field == "terms_score") return {term_scores_to_string(row.term_scores), false};
+  auto computed = row.computed_fields.find(field);
+  if (computed != row.computed_fields.end()) return {computed->second, false};
   auto it = row.attributes.find(field);
   if (it == row.attributes.end()) return {"", true};
   return {it->second, false};

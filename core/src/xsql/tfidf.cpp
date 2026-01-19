@@ -141,6 +141,8 @@ std::vector<QueryResultRow> build_tfidf_rows(const Query& query,
     row.node_id = node.id;
     row.parent_id = node.parent_id;
     row.tag = node.tag;
+    row.max_depth = node.max_depth;
+    row.doc_order = node.doc_order;
     size_t total = token_totals[idx];
     std::vector<std::pair<std::string, double>> scored;
     if (total > 0) {

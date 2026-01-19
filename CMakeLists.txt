@@ -183,6 +183,7 @@ if (XSQL_BUILD_TESTS)
     tests/test_duckbox.cpp
     tests/test_exports.cpp
     tests/test_malformed_html.cpp
+    tests/test_flatten_text.cpp
     tests/test_repl.cpp
     tests/test_fragments.cpp
     tests/test_guardrails.cpp

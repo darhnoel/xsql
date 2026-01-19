@@ -140,6 +140,7 @@ Keys:
 - Up/Down: history (max 5 entries)
 - Left/Right: move cursor
 - Ctrl+L: clear screen
+- Tab: autocomplete keywords/functions/commands
 
 Tip:
 - Use `.load --alias doc1` to register multiple sources and query them via `FROM doc1`.
@@ -410,7 +411,7 @@ SELECT div(node_id, tag, parent_id) FROM doc
 ```
 
 Supported base fields:
-- `node_id`, `tag`, `parent_id`, `sibling_pos`, `source_uri`, `attributes`
+- `node_id`, `tag`, `parent_id`, `sibling_pos`, `max_depth`, `doc_order`, `source_uri`, `attributes`
 
 Attribute value projection:
 - `SELECT link.href FROM doc` returns the `href` value
@@ -420,10 +421,16 @@ Function projection:
 - `SELECT inner_html(div, 1) FROM doc` keeps only tags up to depth 1 (drops deeper tags)
 - `SELECT trim(inner_html(div)) FROM doc` trims leading/trailing whitespace
 - `SELECT TEXT(div) FROM doc WHERE tag = 'div'` returns descendant text for each `div`
+- `SELECT FLATTEN_TEXT(div) AS (c1, c2) FROM doc WHERE descendant.tag IN ('p','span')` flattens text at the deepest depth
 
 Notes:
 - `TEXT()` and `INNER_HTML()` require a `WHERE` clause with a non-tag filter (e.g., attributes or parent).
 - `attributes IS NULL` matches elements with no attributes.
+- `FLATTEN_TEXT()` defaults to all descendant elements (and respects `descendant.tag`); missing columns are padded with NULL and extra values are truncated.
+- `FLATTEN_TEXT()` uses `descendant.tag = '...'`/`IN (...)` and `descendant.attributes.<attr>` with `=`, `IN`, `CONTAINS`, `CONTAINS ALL`, or `CONTAINS ANY` to filter flattened elements.
+- `FLATTEN_TEXT()` extracts direct text from the matched element and falls back to inline descendant text when direct text is empty or whitespace-only; output is trimmed and whitespace-collapsed. When depth is omitted, empty-text nodes are skipped.
+- `FLATTEN_TEXT(base, depth)` targets the exact element depth from `base` (0 = base itself).
+- `FLATTEN_TEXT(base)` defaults to a single output column named `flatten_text` when no `AS (...)` list is provided.
 
 ### TO LIST()
 Output a JSON list for a single projected column:

@@ -48,11 +48,53 @@ bool is_wildcard_only(const Query& query) {
   return query.select_items.size() == 1 && query.select_items[0].tag == "*";
 }
 
+bool scan_descendant_filter(const Expr& expr,
+                            size_t& count,
+                            bool& has_or,
+                            bool& invalid) {
+  if (std::holds_alternative<CompareExpr>(expr)) {
+    const auto& cmp = std::get<CompareExpr>(expr);
+    if (cmp.lhs.axis == Operand::Axis::Descendant) {
+      ++count;
+      if (cmp.lhs.field_kind == Operand::FieldKind::Tag) {
+        if (cmp.op != CompareExpr::Op::Eq && cmp.op != CompareExpr::Op::In) {
+          invalid = true;
+        }
+      } else if (cmp.lhs.field_kind == Operand::FieldKind::Attribute) {
+        if (cmp.op != CompareExpr::Op::Eq &&
+            cmp.op != CompareExpr::Op::In &&
+            cmp.op != CompareExpr::Op::Contains &&
+            cmp.op != CompareExpr::Op::ContainsAll &&
+            cmp.op != CompareExpr::Op::ContainsAny) {
+          invalid = true;
+        }
+      } else {
+        invalid = true;
+      }
+      if (cmp.rhs.values.empty()) {
+        invalid = true;
+      }
+      return true;
+    }
+    return false;
+  }
+  const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
+  bool left = scan_descendant_filter(bin.left, count, has_or, invalid);
+  bool right = scan_descendant_filter(bin.right, count, has_or, invalid);
+  if (bin.op == BinaryExpr::Op::Or && (left || right)) {
+    has_or = true;
+  }
+  return left || right;
+}
+
 }  // namespace
 
 bool is_projection_query(const Query& query) {
   for (const auto& item : query.select_items) {
-    if (item.field.has_value() || item.aggregate != Query::SelectItem::Aggregate::None) return true;
+    if (item.flatten_text || item.field.has_value() ||
+        item.aggregate != Query::SelectItem::Aggregate::None) {
+      return true;
+    }
   }
   return false;
 }
@@ -64,7 +106,16 @@ void validate_projection(const Query& query) {
   bool has_aggregate = false;
   bool has_summarize = false;
   bool has_trim = false;
+  bool has_flatten = false;
+  const Query::SelectItem* flatten_item = nullptr;
   for (const auto& item : query.select_items) {
+    if (item.flatten_text) {
+      if (flatten_item != nullptr) {
+        throw std::runtime_error("FLATTEN_TEXT() supports a single instance per query");
+      }
+      flatten_item = &item;
+      has_flatten = true;
+    }
     if (item.aggregate != Query::SelectItem::Aggregate::None) {
       has_aggregate = true;
       if (item.aggregate == Query::SelectItem::Aggregate::Summarize) {
@@ -78,13 +129,29 @@ void validate_projection(const Query& query) {
   if (has_aggregate && !query.order_by.empty() && !has_summarize) {
     throw std::runtime_error("ORDER BY is not supported with aggregate queries");
   }
+  if (has_flatten && has_aggregate) {
+    throw std::runtime_error("FLATTEN_TEXT() cannot be combined with aggregates");
+  }
+  if (has_flatten && query.where.has_value()) {
+    size_t descendant_count = 0;
+    bool has_or = false;
+    bool invalid = false;
+    scan_descendant_filter(*query.where, descendant_count, has_or, invalid);
+    if (invalid) {
+      throw std::runtime_error("descendant filters support tag (=, IN) and attributes (=, IN, CONTAINS, CONTAINS ALL/ANY)");
+    }
+    if (has_or) {
+      throw std::runtime_error("descendant filters cannot be combined with OR when using FLATTEN_TEXT()");
+    }
+  }
 
   if (!is_projection_query(query)) {
     if (!query.exclude_fields.empty() && !is_wildcard_only(query)) {
       throw std::runtime_error("EXCLUDE requires SELECT *");
     }
     if (!query.exclude_fields.empty()) {
-      const std::vector<std::string> allowed = {"node_id", "tag", "attributes", "parent_id", "source_uri"};
+      const std::vector<std::string> allowed = {"node_id", "tag", "attributes", "parent_id",
+                                                "max_depth", "doc_order", "source_uri"};
       for (const auto& field : query.exclude_fields) {
         if (std::find(allowed.begin(), allowed.end(), field) == allowed.end()) {
           throw std::runtime_error("Unknown EXCLUDE field: " + field);
@@ -127,7 +194,16 @@ void validate_projection(const Query& query) {
     }
     return;
   }
-  if (query.to_list && query.select_items.size() != 1) {
+  if (has_flatten && flatten_item != nullptr) {
+    if (flatten_item->flatten_aliases.empty()) {
+      throw std::runtime_error("FLATTEN_TEXT() requires AS (col1, ...) column aliases");
+    }
+    if (query.to_list) {
+      if (flatten_item->flatten_aliases.size() != 1 || query.select_items.size() != 1) {
+        throw std::runtime_error("TO LIST() requires a single projected column");
+      }
+    }
+  } else if (query.to_list && query.select_items.size() != 1) {
     throw std::runtime_error("TO LIST() requires a single projected column");
   }
   for (const auto& item : query.select_items) {
@@ -156,13 +232,16 @@ void validate_projection(const Query& query) {
   std::string tag;
   std::optional<size_t> inner_html_depth;
   for (const auto& item : query.select_items) {
-    if (!item.field.has_value()) {
+    if (!item.field.has_value() && !item.flatten_text) {
       throw std::runtime_error("Cannot mix tag-only and projected fields in SELECT");
     }
     if (tag.empty()) {
       tag = item.tag;
     } else if (tag != item.tag) {
       throw std::runtime_error("Projected fields must use a single tag");
+    }
+    if (item.flatten_text) {
+      continue;
     }
     const std::string& field = *item.field;
     if (field == "text" && !item.text_function) {
@@ -186,7 +265,8 @@ void validate_projection(const Query& query) {
     }
     if (field != "node_id" && field != "tag" && field != "text" &&
         field != "inner_html" && field != "parent_id" && field != "source_uri" &&
-        field != "attributes" && field != "sibling_pos") {
+        field != "attributes" && field != "sibling_pos" &&
+        field != "max_depth" && field != "doc_order") {
       // Treat other fields as attribute projections (e.g., link.href).
     }
   }
@@ -196,10 +276,34 @@ void validate_projection(const Query& query) {
 /// MUST throw on unknown qualifiers to prevent silent misrouting.
 /// Inputs are Query objects; outputs are exceptions on failure.
 void validate_qualifiers(const Query& query) {
+  std::optional<std::string> sole_tag;
+  bool tag_consistent = true;
+  for (const auto& item : query.select_items) {
+    if (item.aggregate == Query::SelectItem::Aggregate::Tfidf) {
+      tag_consistent = false;
+      break;
+    }
+    std::string tag = util::to_lower(item.tag);
+    if (tag.empty() || tag == "*") {
+      tag_consistent = false;
+      break;
+    }
+    if (!sole_tag.has_value()) {
+      sole_tag = tag;
+    } else if (*sole_tag != tag) {
+      tag_consistent = false;
+      break;
+    }
+  }
+  if (!tag_consistent) {
+    sole_tag.reset();
+  }
+
   auto is_allowed = [&](const std::optional<std::string>& qualifier) -> bool {
     if (!qualifier.has_value()) return true;
     if (query.source.alias.has_value() && *qualifier == *query.source.alias) return true;
     if (query.source.kind == Source::Kind::Document && *qualifier == "document") return true;
+    if (sole_tag.has_value() && util::to_lower(*qualifier) == *sole_tag) return true;
     return false;
   };
 
@@ -300,8 +404,9 @@ void validate_order_by(const Query& query) {
       continue;
     }
     if (field != "node_id" && field != "tag" && field != "text" &&
-        field != "parent_id" && field != "sibling_pos") {
-      throw std::runtime_error("ORDER BY supports node_id, tag, text, parent_id, or sibling_pos");
+        field != "parent_id" && field != "sibling_pos" &&
+        field != "max_depth" && field != "doc_order") {
+      throw std::runtime_error("ORDER BY supports node_id, tag, text, parent_id, sibling_pos, max_depth, or doc_order");
     }
   }
 }
