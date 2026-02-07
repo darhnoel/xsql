@@ -19,6 +19,12 @@ bool has_non_tag_self_predicate(const Expr& expr) {
     if (cmp.op == CompareExpr::Op::HasDirectText) return true;
     return !(cmp.lhs.axis == Operand::Axis::Self && cmp.lhs.field_kind == Operand::FieldKind::Tag);
   }
+  if (std::holds_alternative<std::shared_ptr<ExistsExpr>>(expr)) {
+    const auto& exists = *std::get<std::shared_ptr<ExistsExpr>>(expr);
+    if (exists.axis != Operand::Axis::Self) return true;
+    if (!exists.where.has_value()) return false;
+    return has_non_tag_self_predicate(*exists.where);
+  }
   const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
   return has_non_tag_self_predicate(bin.left) || has_non_tag_self_predicate(bin.right);
 }
@@ -76,6 +82,9 @@ bool scan_descendant_filter(const Expr& expr,
       }
       return true;
     }
+    return false;
+  }
+  if (std::holds_alternative<std::shared_ptr<ExistsExpr>>(expr)) {
     return false;
   }
   const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
@@ -321,6 +330,13 @@ void validate_qualifiers(const Query& query) {
       }
       return;
     }
+    if (std::holds_alternative<std::shared_ptr<ExistsExpr>>(expr)) {
+      const auto& exists = *std::get<std::shared_ptr<ExistsExpr>>(expr);
+      if (exists.where.has_value()) {
+        visit(*exists.where);
+      }
+      return;
+    }
     const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
     visit(bin.left);
     visit(bin.right);
@@ -373,6 +389,13 @@ void validate_predicates(const Query& query) {
             throw std::runtime_error("Regex pattern exceeds maximum length");
           }
         }
+      }
+      return;
+    }
+    if (std::holds_alternative<std::shared_ptr<ExistsExpr>>(expr)) {
+      const auto& exists = *std::get<std::shared_ptr<ExistsExpr>>(expr);
+      if (exists.where.has_value()) {
+        visit(*exists.where);
       }
       return;
     }

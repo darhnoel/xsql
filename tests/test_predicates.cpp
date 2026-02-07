@@ -90,6 +90,28 @@ void test_parenthesized_predicates() {
   expect_eq(result.rows.size(), 2, "parenthesized predicates");
 }
 
+void test_exists_child_any() {
+  std::string html = "<div><span></span></div><div></div>";
+  auto result = run_query(html, "SELECT div FROM document WHERE EXISTS(child)");
+  expect_eq(result.rows.size(), 1, "exists child any");
+}
+
+void test_exists_child_tag() {
+  std::string html = "<div><h2></h2></div><div><span></span></div>";
+  auto result = run_query(html, "SELECT div FROM document WHERE EXISTS(child WHERE tag = 'h2')");
+  expect_eq(result.rows.size(), 1, "exists child tag");
+}
+
+void test_exists_child_same_node() {
+  std::string html =
+      "<div><span class='price'>1</span><h2></h2></div>"
+      "<div><span></span><h2 class='price'></h2></div>";
+  auto result = run_query(
+      html,
+      "SELECT div FROM document WHERE EXISTS(child WHERE tag = 'span' AND attributes.class = 'price')");
+  expect_eq(result.rows.size(), 1, "exists child same node");
+}
+
 }  // namespace
 
 void register_predicate_tests(std::vector<TestCase>& tests) {
@@ -106,4 +128,7 @@ void register_predicate_tests(std::vector<TestCase>& tests) {
   tests.push_back({"sibling_pos_filter", test_sibling_pos_filter});
   tests.push_back({"has_direct_text", test_has_direct_text});
   tests.push_back({"parenthesized_predicates", test_parenthesized_predicates});
+  tests.push_back({"exists_child_any", test_exists_child_any});
+  tests.push_back({"exists_child_tag", test_exists_child_tag});
+  tests.push_back({"exists_child_same_node", test_exists_child_same_node});
 }

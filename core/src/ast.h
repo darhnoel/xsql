@@ -65,8 +65,15 @@ struct CompareExpr {
   Span span;
 };
 
+struct ExistsExpr;
 struct BinaryExpr;
-using Expr = std::variant<CompareExpr, std::shared_ptr<BinaryExpr>>;
+using Expr = std::variant<CompareExpr, std::shared_ptr<ExistsExpr>, std::shared_ptr<BinaryExpr>>;
+
+struct ExistsExpr {
+  Operand::Axis axis = Operand::Axis::Self;
+  std::optional<Expr> where;
+  Span span;
+};
 
 struct BinaryExpr {
   enum class Op { And, Or } op = Op::And;

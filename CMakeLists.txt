@@ -294,6 +294,9 @@ if (XSQL_BUILD_TESTS)
     sibling_pos_filter
     has_direct_text
     parenthesized_predicates
+    exists_child_any
+    exists_child_tag
+    exists_child_same_node
     duckbox_basic_table
     duckbox_truncate_cells
     duckbox_maxrows_truncate

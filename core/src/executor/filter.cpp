@@ -542,6 +542,52 @@ bool axis_has_any_node(const HtmlDocument& doc,
   return has_descendant_any(children, node);
 }
 
+bool eval_exists(const ExistsExpr& exists,
+                 const HtmlDocument& doc,
+                 const std::vector<std::vector<int64_t>>& children,
+                 const HtmlNode& node) {
+  if (!exists.where.has_value()) {
+    return axis_has_any_node(doc, children, node, exists.axis);
+  }
+  const Expr& filter = *exists.where;
+  if (exists.axis == Operand::Axis::Self) {
+    return eval_expr(filter, doc, children, node);
+  }
+  if (exists.axis == Operand::Axis::Parent) {
+    if (!node.parent_id.has_value()) return false;
+    const HtmlNode& parent = doc.nodes.at(static_cast<size_t>(*node.parent_id));
+    return eval_expr(filter, doc, children, parent);
+  }
+  if (exists.axis == Operand::Axis::Child) {
+    for (int64_t id : children.at(static_cast<size_t>(node.id))) {
+      const HtmlNode& child = doc.nodes.at(static_cast<size_t>(id));
+      if (eval_expr(filter, doc, children, child)) return true;
+    }
+    return false;
+  }
+  if (exists.axis == Operand::Axis::Ancestor) {
+    const HtmlNode* current = &node;
+    while (current->parent_id.has_value()) {
+      const HtmlNode& parent = doc.nodes.at(static_cast<size_t>(*current->parent_id));
+      if (eval_expr(filter, doc, children, parent)) return true;
+      current = &parent;
+    }
+    return false;
+  }
+  std::vector<int64_t> stack;
+  stack.insert(stack.end(), children.at(static_cast<size_t>(node.id)).begin(),
+               children.at(static_cast<size_t>(node.id)).end());
+  while (!stack.empty()) {
+    int64_t id = stack.back();
+    stack.pop_back();
+    const HtmlNode& child = doc.nodes.at(static_cast<size_t>(id));
+    if (eval_expr(filter, doc, children, child)) return true;
+    const auto& next = children.at(static_cast<size_t>(id));
+    stack.insert(stack.end(), next.begin(), next.end());
+  }
+  return false;
+}
+
 }  // namespace
 
 /// Checks membership of a string in a list with exact match.
@@ -632,6 +678,10 @@ bool eval_expr(const Expr& expr,
     return match_field(node, cmp.lhs.field_kind, cmp.lhs.attribute, values, cmp.op);
   }
 
+  if (std::holds_alternative<std::shared_ptr<ExistsExpr>>(expr)) {
+    const auto& exists = *std::get<std::shared_ptr<ExistsExpr>>(expr);
+    return eval_exists(exists, doc, children, node);
+  }
   const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
   bool left = eval_expr(bin.left, doc, children, node);
   bool right = eval_expr(bin.right, doc, children, node);
@@ -653,6 +703,10 @@ bool eval_expr_flatten_base(const Expr& expr,
     return eval_expr(expr, doc, children, node);
   }
 
+  if (std::holds_alternative<std::shared_ptr<ExistsExpr>>(expr)) {
+    const auto& exists = *std::get<std::shared_ptr<ExistsExpr>>(expr);
+    return eval_exists(exists, doc, children, node);
+  }
   const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
   bool left = eval_expr_flatten_base(bin.left, doc, children, node);
   bool right = eval_expr_flatten_base(bin.right, doc, children, node);

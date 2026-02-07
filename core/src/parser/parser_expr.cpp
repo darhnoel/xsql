@@ -58,6 +58,42 @@ bool Parser::parse_cmp_expr(Expr& out) {
     out = inner;
     return true;
   }
+  if (current_.type == TokenType::KeywordExists) {
+    Token exists_token = current_;
+    advance();
+    if (!consume(TokenType::LParen, "Expected ( after EXISTS")) return false;
+    if (current_.type != TokenType::Identifier) return set_error("Expected axis name after EXISTS(");
+    Operand::Axis axis = Operand::Axis::Self;
+    std::string axis_name = to_upper(current_.text);
+    if (axis_name == "SELF") {
+      axis = Operand::Axis::Self;
+    } else if (axis_name == "PARENT") {
+      axis = Operand::Axis::Parent;
+    } else if (axis_name == "CHILD") {
+      axis = Operand::Axis::Child;
+    } else if (axis_name == "ANCESTOR") {
+      axis = Operand::Axis::Ancestor;
+    } else if (axis_name == "DESCENDANT") {
+      axis = Operand::Axis::Descendant;
+    } else {
+      return set_error("Expected axis name (self, parent, child, ancestor, descendant)");
+    }
+    advance();
+    std::optional<Expr> filter;
+    if (current_.type == TokenType::KeywordWhere) {
+      advance();
+      Expr inner;
+      if (!parse_expr(inner)) return false;
+      filter = inner;
+    }
+    if (!consume(TokenType::RParen, "Expected ) after EXISTS(...)")) return false;
+    auto node = std::make_shared<ExistsExpr>();
+    node->axis = axis;
+    node->where = std::move(filter);
+    node->span = Span{exists_token.pos, current_.pos};
+    out = node;
+    return true;
+  }
   if (current_.type == TokenType::Identifier && peek().type == TokenType::KeywordHasDirectText) {
     Token tag_token = current_;
     Operand operand;

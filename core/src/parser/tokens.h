@@ -25,6 +25,7 @@ enum class TokenType {
   KeywordAnd,
   KeywordOr,
   KeywordIn,
+  KeywordExists,
   KeywordDocument,
   KeywordLimit,
   KeywordExclude,

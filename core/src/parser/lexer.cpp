@@ -99,6 +99,7 @@ Token Lexer::lex_identifier_or_keyword() {
   if (upper == "AND") return Token{TokenType::KeywordAnd, out, start};
   if (upper == "OR") return Token{TokenType::KeywordOr, out, start};
   if (upper == "IN") return Token{TokenType::KeywordIn, out, start};
+  if (upper == "EXISTS") return Token{TokenType::KeywordExists, out, start};
   if (upper == "DOCUMENT") return Token{TokenType::KeywordDocument, out, start};
   if (upper == "LIMIT") return Token{TokenType::KeywordLimit, out, start};
   if (upper == "EXCLUDE") return Token{TokenType::KeywordExclude, out, start};

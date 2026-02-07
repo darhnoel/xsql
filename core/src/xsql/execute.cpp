@@ -94,6 +94,9 @@ bool collect_descendant_tag_filter(const Expr& expr, DescendantTagFilter& filter
     }
     return false;
   }
+  if (std::holds_alternative<std::shared_ptr<ExistsExpr>>(expr)) {
+    return false;
+  }
   const auto& bin = *std::get<std::shared_ptr<BinaryExpr>>(expr);
   bool left = collect_descendant_tag_filter(bin.left, filter);
   bool right = collect_descendant_tag_filter(bin.right, filter);
@@ -337,6 +340,7 @@ QueryResult execute_meta_query(const Query& query, const std::string& source_uri
               {"axis", "child", "child.<field>", "Direct child"},
               {"axis", "ancestor", "ancestor.<field>", "Any ancestor"},
               {"axis", "descendant", "descendant.<field>", "Any descendant"},
+              {"predicate", "exists", "EXISTS(axis [WHERE expr])", "Existential axis predicate"},
               {"operator", "=", "lhs = rhs", "Equality"},
               {"operator", "<>", "lhs <> rhs", "Not equal"},
               {"operator", "IN", "lhs IN ('a','b')", "Membership"},
