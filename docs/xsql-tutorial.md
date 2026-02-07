@@ -213,6 +213,11 @@ SELECT TEXT(div) FROM doc WHERE id = 'card';
 `INNER_HTML()` returns minified HTML by default; use `RAW_INNER_HTML()` to preserve raw spacing.
 `a.text` is not a valid projection form in this branch; use `TEXT(a)` instead.
 
+**Why this rule exists**
+- It prevents accidental full-document extraction (for large pages, `TEXT()`/`INNER_HTML()` across all matching nodes can create very large output and high memory use).
+- It forces explicit targeting, so extraction queries are intentional and predictable (`id`, `attributes.class`, axis predicates).
+- It keeps function semantics clear: text/inner-html extraction must go through `TEXT(...)` / `INNER_HTML(...)` rather than field-style projection like `a.text`.
+
 ## Beginner query recipes
 
 These are meant to be copy/paste, then tweak.
